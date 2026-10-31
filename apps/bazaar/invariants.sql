@@ -19,11 +19,13 @@ FROM payouts
 GROUP BY order_id
 HAVING COUNT(*) > 1;
 
--- invariant: E5 | high | A seller reviewed their own listing
+-- invariant: E5 | high | A seller or same-owner account reviewed their own listing
 SELECT 'E5' AS bug_id, reviews.id AS review_id, reviews.item_id, reviews.author_id
 FROM reviews
 JOIN items ON items.id = reviews.item_id
-WHERE reviews.author_id = items.seller_id;
+JOIN users AS author ON author.id = reviews.author_id
+JOIN users AS seller ON seller.id = items.seller_id
+WHERE author.owner_key = seller.owner_key;
 
 -- invariant: E7 | high | A blocked buyer contacted the seller by an item question
 SELECT 'E7' AS bug_id, item_questions.id AS question_id, item_questions.item_id, item_questions.author_id

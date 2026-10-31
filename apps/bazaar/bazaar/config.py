@@ -4,7 +4,6 @@ import json
 import os
 from dataclasses import dataclass
 
-
 BUG_IDS = {
     "oversell_race": "E1",
     "coupon_stacking": "E2",
@@ -36,9 +35,7 @@ def load_settings() -> Settings:
             raise ValueError(f"Unknown Bazaar feature flag: {name}")
         bugs[name] = bool(value)
     return Settings(
-        database_url=os.getenv(
-            "DATABASE_URL", "sqlite:///bazaar_local.db"
-        ),
+        database_url=os.getenv("DATABASE_URL", "sqlite:///bazaar_local.db"),
         version=version,
         bugs=bugs,
     )

@@ -5,6 +5,23 @@ connects OpenAPI-driven actors to Dev3 event logging, detection, independent
 replay, reports, benchmark utilities and local memory. A mock Bazaar supports
 direct checks; real Bazaar and the dashboard remain Dev1 deliverables.
 
+## Phase 1 console
+
+The real Bazaar app, runtime, independent replay target and local dashboard
+are integrated on `codex/phase1-completion`. Run:
+
+```sh
+uv sync --locked --extra postgres --extra charts
+uv run --no-sync python -m swarm.demo
+```
+
+Open [the local console](http://127.0.0.1:8080). Configure the model provider in
+ignored `.env` using `.env.example`; do not commit or share its API key.
+See [Phase 1 setup and acceptance](docs/phase1.md) for the six-role/eight-session
+configuration, frozen bug semantics, provider setup, benchmark and gate.
+Direct/scripted checks passed; real-model acceptance remains pending until
+provider configuration and the measured AI runs are complete.
+
 ## Development
 
 Python 3.11 or later and [uv](https://docs.astral.sh/uv/) are required.

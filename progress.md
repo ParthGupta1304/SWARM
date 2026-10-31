@@ -2,6 +2,45 @@
 
 Updated: 2026-10-31 (Asia/Kolkata)
 
+## Phase 1 completion work — current
+
+- Branch: `codex/phase1-completion`, starting from Dev1 `75a312d`.
+- Status: implementation integrated and directly checked; **Phase 1 acceptance
+  is not yet complete** because the real model provider/AI benchmark is pending.
+- User approved the design and written spec, then authorized changing planted
+  scenarios to match the PRD rather than misclassifying single-user failures.
+- Delivered: seeded-user runtime identities; fixed model-controlled identity
+  fields; stable real tool IDs; canonical Finding ingestion; valid SSE;
+  correlated sanitized exception capture and Python response checks; owned
+  disposable live/replay targets; atomic seeded resets; full SQL/log replay
+  hooks; live round timeline, findings, usage/cost, stop and comparison console;
+  complete model/fixture provenance gate and independent evaluator LLM matching.
+- Real config includes six roles across eight sessions, with extra sessions for
+  shared-account races. E2 and E4 now reject sequential duplicates and expose
+  check/write races only under overlap. E1/E2/E4/E7 are interaction-dependent;
+  same-owner E5 remains independently single-user in the seeded fixture.
+- Direct evidence: all eight bug paths independently replay-verified on SQLite
+  and on a temporary Postgres16 cluster (stopped afterward). Seeded startup,
+  fixed arguments, wire findings, exception correlation, telemetry and SSE pass.
+- Fixed flag evidence: v2 prevents overselling and coupon duplication; the
+  payout override prevents double payment; sequential coupon reuse returns409.
+- Full console check: concurrent scripted provider run, six measured fixture
+  callbacks across held-out seeds, report/event exports, stop and overlapping-run
+  rejection passed. The fixture produced three verified emergent IDs but its
+  gate correctly remained incomplete, requiring real-model evidence.
+- Judge/gate checks: fixture provenance, missing judge and judge disagreement
+  cannot pass acceptance; evaluator usage is accounted separately and expected
+  oracle IDs are withheld from its matching prompt. No real judge call yet.
+- Browser reviewed activity/budget/comparison views. Lint, formatting, Python
+  compilation, JS syntax and Git whitespace pass. Native package build passed,
+  including the dashboard assets, YAML configuration and Bazaar fixtures. No
+  new test suite added.
+- Local evidence: `artifacts/phase1-check/` and
+  `artifacts/phase1-console-check/`. See `docs/phase1.md` and
+  `docs/dev1-context.md`. Provider keys are not included in Git or these reports.
+- Nothing from this branch has been pushed to main. The user requested no
+  publication without explicit approval. No Meko handoff sync was performed.
+
 ## Team context update
 
 - Dev2 reports that Meko MCP is unavailable in his client. The root cause is

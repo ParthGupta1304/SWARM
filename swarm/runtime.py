@@ -33,6 +33,8 @@ class Persona(BaseModel):
     completion_tool: str | None = "checkout"
     token_budget: int = Field(default=20000, gt=0)
     max_steps: int = Field(default=40, gt=0)
+    seeded_user_id: int | None = Field(default=None, gt=0)
+    fixed_arguments: dict[str, str | int | bool] = Field(default_factory=dict)
 
 
 class RunConfig(BaseModel):
@@ -75,6 +77,7 @@ class RuntimeHooks:
     reset: Callable[[int], Awaitable[None]] | None = None
     detect: Callable[[RoundWindow], Awaitable[list[Finding]]] | None = None
     close: Callable[[], Awaitable[None]] | None = None
+    progress: Callable[[dict], Awaitable[None]] | None = None
 
 
 @dataclass
@@ -143,6 +146,28 @@ class RunCoordinator:
         budget = TokenBudget(config.token_budget)
         adapter = OpenAPIAdapter(config.spec, config.app_base_url)
         agents = []
+
+        async def publish(status: str, round_num: int = -1):
+            if self.hooks.progress:
+                await self.hooks.progress(
+                    {
+                        "run_id": run_id,
+                        "condition": condition,
+                        "seed": config.seed,
+                        "status": status,
+                        "round": round_num,
+                        "tokens_used": budget.used,
+                        "token_budget": budget.limit,
+                        "cost_usd": (
+                            budget.prompt_tokens * config.input_cost_per_million
+                            + budget.completion_tokens * config.output_cost_per_million
+                        )
+                        / 1e6,
+                        "elapsed_s": time.perf_counter() - started,
+                        "agents": [agent.summary() for agent in agents],
+                    }
+                )
+
         try:
             for persona in config.personas:
                 agent = AgentLoop(
@@ -161,6 +186,8 @@ class RunCoordinator:
                     events=events,
                     budget=TokenBudget(persona.token_budget, parent=budget),
                     completion_tool=persona.completion_tool,
+                    seeded_user_id=persona.seeded_user_id,
+                    fixed_arguments=persona.fixed_arguments,
                 )
                 agent.max_steps = persona.max_steps
                 agents.append(agent)
@@ -174,6 +201,7 @@ class RunCoordinator:
                         agent.history = [
                             {"role": "user", "content": "Prior run memory: " + json.dumps(saved)}
                         ]
+            await publish("running")
             random.Random(config.seed).shuffle(agents)
             findings, times = [], {}
             batches = [agents] if condition == "swarm" else [[agent] for agent in agents]
@@ -205,6 +233,7 @@ class RunCoordinator:
                     errors = [value for value in decisions if isinstance(value, BaseException)]
                     if errors:
                         raise RuntimeError("model decision failed") from errors[0]
+                    await publish("running", round_num)
                     if budget.uncertain:
                         raise BudgetAccountingError("run aborted: model usage could not be bounded")
                     ready = [
@@ -245,6 +274,7 @@ class RunCoordinator:
                         raise RuntimeError("round failed; partial events retained") from errors[0]
                     latest = sorted(outcomes, key=lambda event: event.sequence)
                     causal.extend(latest)
+                    await publish("running", round_num)
                     if self.hooks.detect:
                         window = RoundWindow(
                             run_id, config.seed, round_num, condition, tuple(causal), tuple(latest)
@@ -280,6 +310,7 @@ class RunCoordinator:
                 budget.prompt_tokens * config.input_cost_per_million
                 + budget.completion_tokens * config.output_cost_per_million
             ) / 1_000_000
+            await publish("stopped" if self.stopping() else "completed")
             return RunResult(
                 run_id,
                 condition,
@@ -294,6 +325,9 @@ class RunCoordinator:
                 times,
                 self.stopping(),
             )
+        except Exception:
+            await publish("failed")
+            raise
         finally:
             try:
                 if self.hooks.close is not None:

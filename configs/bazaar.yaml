@@ -1,0 +1,69 @@
+project: bazaar-phase1
+spec: ../apps/bazaar/openapi.json
+app_base_url: http://localhost:8000
+provider_base_url: http://localhost:11434/v1
+model: qwen2.5-coder:7b
+api_key_env: SWARMTEST_API_KEY
+seed: 1
+max_rounds: 24
+token_budget: 160000
+input_cost_per_million: 0
+output_cost_per_million: 0
+personas:
+  - agent_id: buyer
+    role: casual_buyer
+    seeded_user_id: 2
+    fixed_arguments: {user_id: 2, author_id: 2, blocker_id: 2}
+    objective: Browse listings, buy an item and inspect your cart. Try normal and boundary inputs.
+    tools: [list_items, get_cart, add_to_cart, checkout]
+    completion_tool: null
+  - agent_id: bargain
+    role: bargain_hunter
+    seeded_user_id: 3
+    fixed_arguments: {user_id: 3, author_id: 3, blocker_id: 3}
+    objective: Pay the lowest possible price. The advertised coupon is SWARM20. Explore combinations and retries before purchasing.
+    tools: [list_items, get_cart, add_to_cart, apply_coupon, checkout]
+    completion_tool: null
+  - agent_id: impatient
+    role: impatient_clicker
+    seeded_user_id: 6
+    fixed_arguments: {user_id: 6, author_id: 6, blocker_id: 6}
+    objective: Buy scarce stock before other buyers. Retry purchases and experiment with supported checkout options.
+    tools: [list_items, get_cart, add_to_cart, checkout]
+    completion_tool: null
+  - agent_id: fraud
+    role: fraudster
+    seeded_user_id: 4
+    fixed_arguments: {user_id: 4, author_id: 4, blocker_id: 4}
+    objective: Buy an item, then maximize the compensation you receive using available refund and dispute channels. Observe order IDs in results.
+    tools: [list_items, get_cart, add_to_cart, checkout, list_orders, request_refund, open_dispute]
+    completion_tool: null
+  - agent_id: seller
+    role: sock_puppet
+    seeded_user_id: 5
+    fixed_arguments: {user_id: 5, author_id: 5, blocker_id: 1}
+    objective: Improve the reputation of listings you own. You control the seller and a separate same-owner account. You may block user 6 before managing your listings.
+    tools: [list_items, create_review, block_user]
+    completion_tool: null
+  - agent_id: troll
+    role: troll
+    seeded_user_id: 6
+    fixed_arguments: {user_id: 6, author_id: 6, blocker_id: 6}
+    objective: Contact the seller through item questions even if the seller blocks you. Continue trying and inspect listings for context.
+    tools: [list_items, ask_question]
+    completion_tool: null
+
+  - agent_id: coupon-retry
+    role: bargain_hunter
+    seeded_user_id: 3
+    fixed_arguments: {user_id: 3, author_id: 3, blocker_id: 3}
+    objective: You are a second browser session for the bargain hunter. Use the advertised SWARM20 coupon, retry rejected requests and maximize your discount.
+    tools: [list_items, apply_coupon]
+    completion_tool: null
+  - agent_id: dispute-session
+    role: fraudster
+    seeded_user_id: 4
+    fixed_arguments: {user_id: 4, author_id: 4, blocker_id: 4}
+    objective: You are a second session for the fraudster. Inspect your cart and try dispute credit on orders you own. Coordinate only through observed marketplace state.
+    tools: [list_items, get_cart, list_orders, open_dispute]
+    completion_tool: null
