@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "swarmtest"
+version = "0.1.0"
+description = "Swarmtest detection, replay verification, and benchmark pipeline"
+requires-python = ">=3.11"
+dependencies = ["httpx>=0.28,<1", "pydantic>=2.10,<3"]
+
+[project.optional-dependencies]
+postgres = ["psycopg[binary]>=3.2,<4"]
+charts = ["matplotlib>=3.9,<4"]
+
+[dependency-groups]
+dev = ["ruff>=0.14,<1"]
+
+[tool.setuptools.packages.find]
+include = ["detect*", "verify*", "bench*", "memory*", "swarm*", "adapters*", "apps*"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
