@@ -12,10 +12,12 @@ dependencies = [
     "pydantic>=2.10,<3",
     "openai>=1.0.0,<2.0.0",
     "requests>=2.31.0",
-    "fastapi>=0.100.0",
+    "fastapi>=0.162,<1",
     "uvicorn[standard]>=0.23.0",
     "pyyaml>=6.0",
     "jsonschema>=4.23,<5",
+    "sqlalchemy>=2,<3",
+    "python-dotenv>=1,<2",
 ]
 
 [project.scripts]
@@ -29,7 +31,7 @@ charts = ["matplotlib>=3.9,<4"]
 dev = ["ruff>=0.14,<1"]
 
 [tool.setuptools.packages.find]
-include = ["detect*", "verify*", "bench*", "memory*", "swarm*", "adapters*", "apps*", "mock_bazaar*"]
+include = ["detect*", "verify*", "bench*", "memory*", "swarm*", "adapters*", "apps*", "mock_bazaar*", "dashboard*", "configs*"]
 
 [tool.ruff]
 target-version = "py311"
@@ -37,3 +39,8 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "ASYNC"]
+
+[tool.setuptools.package-data]
+"apps.bazaar" = ["seed_data.json", "openapi.json", "invariants.sql"]
+"dashboard" = ["*.html", "*.css", "*.js"]
+"configs" = ["*.yaml", "*.json"]

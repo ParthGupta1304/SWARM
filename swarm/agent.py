@@ -62,6 +62,8 @@ class AgentLoop:
         events: RunEvents | None = None,
         budget: TokenBudget | None = None,
         completion_tool: str | None = "checkout",
+        seeded_user_id: int | None = None,
+        fixed_arguments: dict[str, Any] | None = None,
     ):
         self.agent_id, self.role, self.objective = agent_id, role, objective
         self.score_desc, self.app_base_url = score_desc, app_base_url.rstrip("/")
@@ -76,6 +78,14 @@ class AgentLoop:
                 sorted(self.adapter.get_tool_names() - {"register", "login", "health"})
             )
         )
+        self.seeded_user_id = seeded_user_id
+        self.fixed_arguments = fixed_arguments or {}
+        for tool in self.tool_defs:
+            schema = tool["function"]["parameters"]
+            for key in self.fixed_arguments:
+                schema.get("properties", {}).pop(key, None)
+                if key in schema.get("required", []):
+                    schema["required"].remove(key)
         self.tool_names = {tool["function"]["name"] for tool in self.tool_defs}
         if not self.tool_names or not self.tool_names <= self.adapter.get_tool_names():
             raise ValueError("actor tools must be a nonempty subset of adapter operations")
@@ -109,6 +119,17 @@ class AgentLoop:
         )
 
     def _register_account(self) -> bool:
+        if self.seeded_user_id is not None:
+            try:
+                response = requests.get(f"{self.app_base_url}/api/users", timeout=10)
+                if response.status_code == 200 and any(
+                    user["id"] == self.seeded_user_id for user in response.json()
+                ):
+                    return True
+            except (requests.RequestException, ValueError, TypeError, KeyError):
+                pass
+            self.error = "seeded actor is missing from the target"
+            return False
         if self.auth_token:
             return True
         credentials = {"username": self.username, "password": self.password}
@@ -240,6 +261,17 @@ class AgentLoop:
         action = self._extract_action(response)
         if action is not None:
             try:
+                name, arguments = action
+                properties = self.adapter.operations[name]["schema"]["properties"]
+                arguments = {
+                    **arguments,
+                    **{
+                        key: value
+                        for key, value in self.fixed_arguments.items()
+                        if key in properties
+                    },
+                }
+                action = name, arguments
                 request = self.adapter.prepare_request(*action)
                 return Decision(*action, request, tokens, response.choices[0].message)
             except (ValueError, TypeError, KeyError, ValidationError):
@@ -256,14 +288,14 @@ class AgentLoop:
         return None
 
     def execute(self, decision: Decision, slot: EventSlot) -> Event:
-        status, body, latency = self.adapter.execute_request(
-            decision.request, self.auth_token or ""
-        )
+        headers = {**decision.request.headers, "X-Swarm-Action": f"{self.run_id}:{slot.sequence}"}
+        request = decision.request.model_copy(update={"headers": headers})
+        status, body, latency = self.adapter.execute_request(request, self.auth_token or "")
         event = self.events.record(
             slot,
             role=self.role,
             tool=decision.tool,
-            request=decision.request,
+            request=request,
             response_status=status,
             response_body=body,
             latency_ms=latency,

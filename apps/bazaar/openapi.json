@@ -5,26 +5,10 @@
     "version": "0.1.0"
   },
   "paths": {
-    "/health": {
-      "get": {
-        "summary": "Health",
-        "operationId": "health_health_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/users": {
       "get": {
         "summary": "List Users",
-        "operationId": "list_users_api_users_get",
+        "operationId": "list_users",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -40,7 +24,7 @@
     "/api/items": {
       "get": {
         "summary": "List Items",
-        "operationId": "list_items_api_items_get",
+        "operationId": "list_items",
         "parameters": [
           {
             "name": "q",
@@ -78,7 +62,7 @@
     "/api/cart/items": {
       "post": {
         "summary": "Add Cart Item",
-        "operationId": "add_cart_item_api_cart_items_post",
+        "operationId": "add_to_cart",
         "requestBody": {
           "content": {
             "application/json": {
@@ -114,7 +98,7 @@
     "/api/cart/{user_id}": {
       "get": {
         "summary": "Get Cart",
-        "operationId": "get_cart_api_cart__user_id__get",
+        "operationId": "get_cart",
         "parameters": [
           {
             "name": "user_id",
@@ -151,7 +135,7 @@
     "/api/coupons/apply": {
       "post": {
         "summary": "Apply Coupon",
-        "operationId": "apply_coupon_api_coupons_apply_post",
+        "operationId": "apply_coupon",
         "requestBody": {
           "content": {
             "application/json": {
@@ -187,7 +171,7 @@
     "/api/checkout": {
       "post": {
         "summary": "Checkout",
-        "operationId": "checkout_api_checkout_post",
+        "operationId": "checkout",
         "requestBody": {
           "content": {
             "application/json": {
@@ -220,10 +204,47 @@
         }
       }
     },
+    "/api/users/{user_id}/orders": {
+      "get": {
+        "summary": "List Orders",
+        "operationId": "list_orders",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orders/{order_id}/refund": {
       "post": {
         "summary": "Request Refund",
-        "operationId": "request_refund_api_orders__order_id__refund_post",
+        "operationId": "request_refund",
         "parameters": [
           {
             "name": "order_id",
@@ -270,7 +291,7 @@
     "/api/orders/{order_id}/disputes": {
       "post": {
         "summary": "Open Dispute",
-        "operationId": "open_dispute_api_orders__order_id__disputes_post",
+        "operationId": "open_dispute",
         "parameters": [
           {
             "name": "order_id",
@@ -317,7 +338,7 @@
     "/api/blocks": {
       "post": {
         "summary": "Block User",
-        "operationId": "block_user_api_blocks_post",
+        "operationId": "block_user",
         "requestBody": {
           "content": {
             "application/json": {
@@ -353,7 +374,7 @@
     "/api/items/{item_id}/questions": {
       "post": {
         "summary": "Ask Question",
-        "operationId": "ask_question_api_items__item_id__questions_post",
+        "operationId": "ask_question",
         "parameters": [
           {
             "name": "item_id",
@@ -400,7 +421,7 @@
     "/api/items/{item_id}/reviews": {
       "post": {
         "summary": "Create Review",
-        "operationId": "create_review_api_items__item_id__reviews_post",
+        "operationId": "create_review",
         "parameters": [
           {
             "name": "item_id",
@@ -438,159 +459,6 @@
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
                 }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/events": {
-      "get": {
-        "summary": "List Events",
-        "operationId": "list_events_api_events_get",
-        "parameters": [
-          {
-            "name": "after_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 0,
-              "title": "After Id"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 500,
-              "default": 100,
-              "title": "Limit"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/events/stream": {
-      "get": {
-        "summary": "Stream Events",
-        "operationId": "stream_events_api_events_stream_get",
-        "parameters": [
-          {
-            "name": "after_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 0,
-              "title": "After Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/findings": {
-      "get": {
-        "summary": "List Findings",
-        "operationId": "list_findings_api_findings_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "summary": "Create Finding",
-        "operationId": "create_finding_api_findings_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FindingRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/dashboard/summary": {
-      "get": {
-        "summary": "Dashboard Summary",
-        "operationId": "dashboard_summary_api_dashboard_summary_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
               }
             }
           }
@@ -670,6 +538,13 @@
           "code": {
             "type": "string",
             "title": "Code"
+          },
+          "race_delay_ms": {
+            "type": "integer",
+            "maximum": 2000.0,
+            "minimum": 0.0,
+            "title": "Race Delay Ms",
+            "default": 75
           }
         },
         "type": "object",
@@ -678,39 +553,6 @@
           "code"
         ],
         "title": "CouponRequest"
-      },
-      "FindingRequest": {
-        "properties": {
-          "bug_id": {
-            "type": "string",
-            "title": "Bug Id"
-          },
-          "title": {
-            "type": "string",
-            "title": "Title"
-          },
-          "severity": {
-            "type": "string",
-            "title": "Severity",
-            "default": "high"
-          },
-          "verified": {
-            "type": "boolean",
-            "title": "Verified",
-            "default": false
-          },
-          "evidence": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Evidence"
-          }
-        },
-        "type": "object",
-        "required": [
-          "bug_id",
-          "title"
-        ],
-        "title": "FindingRequest"
       },
       "HTTPValidationError": {
         "properties": {
@@ -742,6 +584,13 @@
               }
             ],
             "title": "Amount Cents"
+          },
+          "race_delay_ms": {
+            "type": "integer",
+            "maximum": 2000.0,
+            "minimum": 0.0,
+            "title": "Race Delay Ms",
+            "default": 75
           }
         },
         "type": "object",
