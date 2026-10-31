@@ -6,7 +6,7 @@ from collections.abc import Sequence
 import openai
 
 from bench.metrics import BenchmarkRun
-from swarm.budget import TokenBudget, usage_counts
+from swarm.budget import BudgetExhausted, TokenBudget, usage_counts
 from swarm.context import stable_json
 from swarm.provider import ProviderPacer, completion_with_headers, is_groq_cache
 
@@ -29,6 +29,7 @@ def judge_findings(
     api_key: str,
     *,
     token_budget: int = 20000,
+    cancelled=None,
 ) -> dict:
     budget = TokenBudget(
         token_budget,
@@ -44,6 +45,8 @@ def judge_findings(
         base_url=config.provider_base_url, api_key=api_key, max_retries=0, timeout=30
     ) as client:
         for finding in unique.values():
+            if cancelled and cancelled():
+                raise BudgetExhausted("Evaluation stopped before provider dispatch")
             messages = [
                 {
                     "role": "system",
@@ -88,7 +91,13 @@ def judge_findings(
                 },
             ]
             reservation, cap = budget.reserve(messages, None, 512)
-            rate_reservation = pacer.wait(len(json.dumps(messages).encode()) // 3 + 128, cap)
+            try:
+                rate_reservation = pacer.wait(
+                    len(json.dumps(messages).encode()) // 3 + 128, cap, cancelled
+                )
+            except BudgetExhausted:
+                budget.release(reservation)
+                raise
             try:
                 response, headers = completion_with_headers(
                     client,

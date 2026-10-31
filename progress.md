@@ -1,3 +1,25 @@
+# Workspace reset — 2026-11-01
+
+- Added a confirmed Reset workspace control to the console. It drains active
+  model/API/replay/benchmark work, blocks overlapping operations, resets both
+  seeded targets (including findings/telemetry), clears generated run data,
+  comparisons/reviews/memory and replaces the event database.
+- Added workspace generations, stale-response/cursor protection, browser-state
+  clearing and cross-tab Bazaar refresh. Browser HTTP-cache clearing is requested;
+  provider-managed Groq caching/account quotas remain outside the local scope.
+- Source, credentials, settings, unrelated files/experiments and external saved
+  results are protected. Read-only result views disable Reset; failures block
+  new work until retry succeeds. No reset was executed on the owner's data.
+- Checks: 18 Python checks and the offline frontend behavior check pass. Real
+  disposable SQLite/scripted integration passes all eight planted cases, six
+  comparison runs, idle/active reset, reseeding and reuse. Frontends/package build
+  pass. The idle launcher was reloaded and the live Reset control/API and Bazaar
+  assets verified without resetting owner data. This work stays on the local
+  `codex/ai-efficiency` branch.
+- See `docs/workspace-reset.md` for scope and API/validation details.
+
+---
+
 # Run length update — 2026-11-01
 
 - Owner requested six rounds. Regular dashboard and config-only CLI runs now

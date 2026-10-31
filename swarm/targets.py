@@ -42,9 +42,9 @@ class BazaarTarget:
         self.engine = create_engine(self.database_url)
         self.reset(1)
 
-    def reset(self, seed: int) -> None:
+    def reset(self, seed: int, *, clear_reports: bool = False) -> None:
         # Only a target object explicitly constructed by the launcher can reset.
-        self._seed(self.database_url, seed, self.seed_fixture)
+        self._seed(self.database_url, seed, self.seed_fixture, preserve_reports=not clear_reports)
         if self.engine.dialect.name == "sqlite":
             with self.engine.connect() as db:
                 db.exec_driver_sql("PRAGMA journal_mode=WAL")
@@ -144,3 +144,12 @@ class BazaarEnvironment:
     def __exit__(self, *_):
         self.live.close()
         self.replay.close()
+
+    def reset_workspace(self, seed: int):
+        """Full reset is explicit; ordinary benchmark resets retain published reports."""
+        for target in (self.live, self.replay):
+            target.reset(seed, clear_reports=True)
+            if target.log is not None:
+                target.log.seek(0)
+                target.log.truncate()
+                target.log.flush()

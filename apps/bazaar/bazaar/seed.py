@@ -11,16 +11,22 @@ from .database import Base
 from .models import Coupon, Item, User
 
 
-def seed_database(database_url: str, seed: int, fixture_path: str | Path | None = None) -> None:
+def seed_database(
+    database_url: str,
+    seed: int,
+    fixture_path: str | Path | None = None,
+    *,
+    preserve_reports: bool = True,
+) -> None:
     fixture = json.loads(
         Path(fixture_path or Path(__file__).parent.parent / "seed_data.json").read_text()
     )
     rng = random.Random(seed)
     target = create_engine(database_url)
-    preserved = {"wire_findings", "run_telemetry", "findings"}
+    preserved = {"wire_findings", "run_telemetry", "findings"} if preserve_reports else set()
     try:
         Base.metadata.create_all(target)
-        # Keep table definitions and published reports. Readers see either the
+        # Keep table definitions and (normally) reports. Readers see either the
         # previous or next fixture snapshot; dashboards never see missing tables.
         with target.begin() as connection:
             cleared = [

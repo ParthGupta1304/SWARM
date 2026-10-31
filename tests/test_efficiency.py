@@ -380,6 +380,11 @@ class EfficiencyChecks(unittest.TestCase):
         self.assertAlmostEqual(result["cost_usd"], 0.0000165)
         self.assertEqual(result["efficiency"]["model_calls"], 1)
         self.assertEqual(run.tokens_used, 0)  # Exploration budget remains separate.
+        with patch("bench.judge.openai.OpenAI", return_value=client):
+            with self.assertRaises(BudgetExhausted):
+                judge_findings(
+                    [run], {"S1": "single-user"}, config, "fixture", cancelled=lambda: True
+                )
 
     def test_rate_feedback_never_increases_capacity_and_stop_is_responsive(self):
         pacer = ProviderPacer(24, 7000)

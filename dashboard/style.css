@@ -6,3 +6,5 @@
 
 #benchmark{overflow-x:auto}#benchmark table{min-width:850px}#review-evidence{white-space:pre-wrap;overflow-wrap:anywhere;max-height:500px;overflow:auto}
 #fixture-warning{position:sticky;top:0;z-index:100}
+
+.controls>div{display:flex;flex-wrap:wrap;gap:8px}.controls .secondary{margin-left:0}#reset{color:var(--red);border-color:#e2b8be}#reset-status{font-size:13px}

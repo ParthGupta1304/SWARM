@@ -8,10 +8,11 @@ import re
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
+from uuid import uuid4
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -19,6 +20,7 @@ from bench.gate import evaluate_phase1
 from bench.judge import judge_findings
 from bench.metrics import BenchmarkRun, run_benchmark, summarize, write_benchmark
 from bench.review import record_review
+from dashboard.reset import cleanup_plan, clear_artifacts
 from detect.report import write_report
 from detect.store import SQLiteEventStore, export_jsonl
 from swarm.bazaar import make_hooks
@@ -43,6 +45,10 @@ class Review(BaseModel):
     note: str = Field(min_length=3, max_length=2000)
 
 
+class Reset(BaseModel):
+    confirmed: Literal[True]
+
+
 def create_app(config, environment, output: Path, results: Path | None = None):
     output.mkdir(parents=True, exist_ok=True)
     store = SQLiteEventStore(output / "events.sqlite3")
@@ -62,8 +68,14 @@ def create_app(config, environment, output: Path, results: Path | None = None):
         "benchmark": read("benchmark.json", None),
         "gate": read("phase1-gate.json", None),
         "runs": [BenchmarkRun.model_validate(r) for r in read("measured-runs.json", [])],
+        "reset_task": None,
+        "resetting": False,
+        "reset_failed": False,
+        "generation": uuid4().hex,
     }
     truth = json.loads((STATIC.parent / "configs" / "bazaar-truth.json").read_text())
+
+    operations = asyncio.Lock()
 
     @asynccontextmanager
     async def lifespan(_):
@@ -73,6 +85,8 @@ def create_app(config, environment, output: Path, results: Path | None = None):
             state["coordinator"].stop()
         if state["task"]:
             await state["task"]
+        if state["reset_task"]:
+            await state["reset_task"]
         store.close()
 
     app = FastAPI(title="Swarmtest console", lifespan=lifespan)
@@ -90,8 +104,18 @@ def create_app(config, environment, output: Path, results: Path | None = None):
     def busy():
         return state["task"] is not None and not state["task"].done()
 
+    def check_reset():
+        if state["resetting"] or state["reset_failed"]:
+            raise HTTPException(409, "Workspace is resetting or needs a reset retry")
+
     @app.api_route("/market/{path:path}", methods=["GET", "POST"])
     async def market(path: str, request: Request):
+        check_reset()
+        async with operations:
+            check_reset()
+            return await forward_market(path, request)
+
+    async def forward_market(path: str, request: Request):
         if not ALLOWED.fullmatch(path):
             raise HTTPException(404, "Unknown marketplace operation")
         if request.method == "POST" and busy():
@@ -201,11 +225,18 @@ def create_app(config, environment, output: Path, results: Path | None = None):
                     truth=truth,
                 )
                 state["runs"] = measured_runs
+                if state["stop_requested"]:
+                    raise RuntimeError("Benchmark stopped before evaluation")
                 judge = None
                 if all(r.provenance.get("source") == "real-model" for r in measured_runs):
                     try:
                         judge = await asyncio.to_thread(
-                            judge_findings, measured_runs, truth, config, credential(config)
+                            judge_findings,
+                            measured_runs,
+                            truth,
+                            config,
+                            credential(config),
+                            cancelled=lambda: state["stop_requested"],
                         )
                     except Exception as exc:
                         judge = {"status": "error", "error_class": type(exc).__name__}
@@ -222,6 +253,11 @@ def create_app(config, environment, output: Path, results: Path | None = None):
 
     @app.post("/api/start")
     async def start(payload: Start):
+        async with operations:
+            check_reset()
+            return start_run(payload)
+
+    def start_run(payload):
         if busy():
             raise HTTPException(409, "A run is already active")
         if results is not None and payload.condition == "benchmark":
@@ -238,6 +274,74 @@ def create_app(config, environment, output: Path, results: Path | None = None):
         state["task"] = asyncio.create_task(work(payload.condition))
         return {"status": "started"}
 
+    def wipe():
+        nonlocal store
+        plan = cleanup_plan(output, environment.directory)
+        environment.reset_workspace(config.seed)
+        store.close()
+        clear_artifacts(plan)
+        store = SQLiteEventStore(output / "events.sqlite3")
+
+    async def reset_workspace():
+        try:
+            if state["task"]:
+                # Wait for benchmark workers and all replay/API writes before deleting.
+                await asyncio.shield(state["task"])
+            async with operations:
+                await asyncio.to_thread(wipe)
+                state.update(
+                    task=None,
+                    coordinator=None,
+                    error=None,
+                    stop_requested=False,
+                    benchmark=None,
+                    gate=None,
+                    runs=[],
+                    reset_failed=False,
+                    generation=uuid4().hex,
+                )
+        except Exception as exc:
+            state["reset_failed"] = True
+            state["error"] = (
+                f"Reset failed ({type(exc).__name__}). Retry Reset workspace; new runs are blocked."
+            )
+        finally:
+            state["resetting"] = False
+
+    @app.post("/api/reset", status_code=202)
+    async def reset(payload: Reset):
+        if results is not None:
+            raise HTTPException(
+                409, "Saved-results mode is read-only; open a live workspace to reset"
+            )
+        async with operations:
+            if not state["resetting"]:
+                state.update(resetting=True, reset_failed=False, error=None, stop_requested=True)
+                if state["coordinator"]:
+                    state["coordinator"].stop()
+                state["reset_task"] = asyncio.create_task(reset_workspace())
+        return JSONResponse(
+            {"status": "resetting"},
+            status_code=202,
+            headers={"Cache-Control": "no-store", "Clear-Site-Data": '"cache"'},
+        )
+
+    def workspace_state():
+        return {
+            "generation": state["generation"],
+            "resetting": state["resetting"],
+            "reset_failed": state["reset_failed"],
+            "reset_allowed": results is None,
+            "error": state["error"],
+        }
+
+    @app.get("/api/workspace")
+    async def workspace(previous: str | None = None):
+        headers = {"Cache-Control": "no-store"}
+        if previous is not None and previous != state["generation"]:
+            headers["Clear-Site-Data"] = '"cache"'
+        return JSONResponse(workspace_state(), headers=headers)
+
     @app.post("/api/stop")
     async def stop():
         state["stop_requested"] = True
@@ -246,7 +350,12 @@ def create_app(config, environment, output: Path, results: Path | None = None):
         return {"status": "stopping"}
 
     @app.post("/api/review")
-    def review(payload: Review):
+    async def review(payload: Review):
+        async with operations:
+            check_reset()
+            return review_finding(payload)
+
+    def review_finding(payload):
         if busy():
             raise HTTPException(409, "Wait until the benchmark completes")
         if not state["runs"]:
@@ -259,7 +368,12 @@ def create_app(config, environment, output: Path, results: Path | None = None):
         return {"status": "recorded", "gate": state["gate"]}
 
     @app.get("/api/review")
-    def review_state():
+    async def review_state():
+        async with operations:
+            check_reset()
+            return review_snapshot()
+
+    def review_snapshot():
         return {
             "reviews": read("manual-review.json", []),
             "judge": read("judge.json", None),
@@ -268,6 +382,27 @@ def create_app(config, environment, output: Path, results: Path | None = None):
 
     @app.get("/api/state")
     async def snapshot(after_id: int = 0):
+        async with operations:
+            base = {
+                "busy": busy() or state["resetting"],
+                **workspace_state(),
+                "model": config.model,
+                "token_budget": config.token_budget,
+                "max_rounds": config.max_rounds,
+            }
+            if state["resetting"] or state["reset_failed"]:
+                return {
+                    **base,
+                    "actions": [],
+                    "runs": [],
+                    "findings": [],
+                    "events": [],
+                    "benchmark": None,
+                    "gate": None,
+                }
+            return {**(await live_snapshot(after_id)), **base}
+
+    async def live_snapshot(after_id):
         try:
             async with httpx.AsyncClient(base_url=environment.live.url, timeout=5) as client:
                 responses = await asyncio.gather(
@@ -306,9 +441,13 @@ def create_app(config, environment, output: Path, results: Path | None = None):
             except ValueError:
                 cursor = 0
             run_id = None
+            generation = None
             while not await request.is_disconnected():
                 try:
                     data = await snapshot(cursor)
+                    if data["generation"] != generation:
+                        generation, run_id, cursor = data["generation"], None, 0
+                        data = await snapshot(cursor)
                     current = next(
                         (r for r in data["runs"] if r.get("status") == "running"),
                         data["runs"][-1] if data["runs"] else {},
@@ -320,7 +459,7 @@ def create_app(config, environment, output: Path, results: Path | None = None):
                     ids = [e["id"] for e in data["events"]]
                     if ids:
                         cursor = max(ids)
-                    yield f"id: {cursor}\ndata: {json.dumps(data)}\n\n"
+                    yield f"id: {generation}:{cursor}\ndata: {json.dumps(data)}\n\n"
                 except HTTPException:
                     yield "event: unavailable\ndata: {}\n\n"
                 await asyncio.sleep(1)

@@ -17,6 +17,9 @@ Open [Bazaar](http://127.0.0.1:8080/bazaar/) to browse and shop, or the
 [Swarmtest console](http://127.0.0.1:8080/) to run agents and inspect findings.
 The React storefront uses the same live Bazaar instance as the agents.
 The launcher owns separate live/replay targets and stops them on exit.
+Use **Reset workspace** in the console to stop active work, clear its local
+history/results/memory and restore seeded Bazaar data. It asks for confirmation;
+API keys and settings are kept. See [reset scope](docs/workspace-reset.md).
 
 The project owner approved **10 agents and Groq `openai/gpt-oss-120b`**, replacing
 the PRD's 20-agent minimum and earlier local-Qwen setup. The API key remains server-side and is

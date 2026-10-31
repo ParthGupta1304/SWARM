@@ -1,7 +1,7 @@
 # Reset workspace and clear local caches
 
 Date: 2026-11-01
-Status: Written scope awaiting owner review; no reset code or data deletion yet.
+Status: Approved by owner (“ok proceed”); implemented and checked on disposable data.
 
 ## Requested behavior and approach
 
@@ -98,5 +98,5 @@ caching remains under Groq's control; the local reset must not claim to erase it
 - [x] Resolve scope conservatively to the active console workspace.
 - [x] Compare memory-only, active-workspace and repository-wide approaches.
 - [x] Write the concrete design and self-review scope/concurrency/acceptance.
-- [ ] Owner approves the written reset scope.
-- [ ] Write the implementation sequence, implement, validate and reload.
+- [x] Owner approves the written reset scope.
+- [x] Write the implementation sequence, implement, validate and reload.
