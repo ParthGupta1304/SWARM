@@ -122,6 +122,7 @@ def main():
             "swarm/runtime.py",
             "swarm/budget.py",
             "swarm/provider.py",
+            "swarm/context.py",
             "verify/replay.py",
             "detect/findings.py",
             "swarm/bazaar.py",
@@ -184,9 +185,13 @@ def main():
             run_id = str(uuid4())
             try:
                 result = asyncio.run(
-                    RunCoordinator(selected, store, api_key=api_key, hooks=hooks).run(
-                        condition, run_id=run_id
-                    )
+                    RunCoordinator(
+                        selected,
+                        store,
+                        api_key=api_key,
+                        hooks=hooks,
+                        context_dir=args.output / "memory",
+                    ).run(condition, run_id=run_id)
                 )
             except BaseException as exc:
                 directory = args.output / run_id

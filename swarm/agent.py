@@ -16,10 +16,9 @@ from jsonschema.exceptions import ValidationError
 from adapters.openapi import OpenAPIAdapter
 from detect.contracts import Event, Request
 from swarm.budget import BudgetAccountingError, BudgetExhausted, TokenBudget
+from swarm.context import CompactContext, ContextPolicy, bounded_value, stable_json
 from swarm.events import EventSlot, RunEvents, default_events
-
-MEMORY_SUMMARY_INTERVAL = 8
-MEMORY_KEEP_RECENT = 4
+from swarm.provider import completion_with_headers, is_groq_cache
 
 
 def _extract_json(text: str) -> dict | None:
@@ -64,6 +63,7 @@ class AgentLoop:
         completion_tool: str | None = "checkout",
         seeded_user_id: int | None = None,
         fixed_arguments: dict[str, Any] | None = None,
+        context_policy: ContextPolicy | None = None,
     ):
         self.agent_id, self.role, self.objective = agent_id, role, objective
         self.score_desc, self.app_base_url = score_desc, app_base_url.rstrip("/")
@@ -91,6 +91,14 @@ class AgentLoop:
             return value
 
         self.tool_defs = compact_schema(self.tool_defs)
+        for tool in self.tool_defs:
+            function = tool["function"]
+            if (
+                function.get("description", "").strip().lower().replace(" ", "_")
+                == function["name"]
+            ):
+                function.pop("description", None)
+        self.tool_defs.sort(key=lambda tool: tool["function"]["name"])
         self.seeded_user_id = seeded_user_id
         self.fixed_arguments = fixed_arguments or {}
         for tool in self.tool_defs:
@@ -116,12 +124,14 @@ class AgentLoop:
         digest = hashlib.sha256(f"{run_id}:{agent_id}".encode()).hexdigest()[:24]
         self.username, self.password = f"swarm_{digest}", secrets.token_urlsafe(24)
         self.history: list[dict] = []
-        self._turns: list[list[dict]] = []
+        self.context = CompactContext(context_policy or ContextPolicy())
         self.step = self.tokens_used = self.score = 0
         self.total_tool_calls = self.invalid_tool_calls = 0
         self.used_fallback = self.done = self.stopped = False
         self.error: str | None = None
-        self._summary_at = -1
+        self._invalid_streak = 0
+        self.stop_reason: str | None = None
+        self.prompt_bytes = self.max_prompt_bytes = 0
         self.pacer = None
         self.score_unit = "objective points"
         self.provider_receipts = []
@@ -129,12 +139,36 @@ class AgentLoop:
 
     def _system_prompt(self) -> str:
         return (
-            f"You are a user of Bazaar. Role: {self.role}. Objective: {self.objective}. "
-            f"Score: {self.score_desc}. Call exactly ONE available tool per turn. "
-            'If native tools are unavailable, return {"tool":"name","arguments":{}}. '
-            "Account setup is already complete. Follow the objective using tool results."
-            f" Your account ID is {self.seeded_user_id}. "
-            "You are authorized to test this synthetic local marketplace."
+            "Test this authorized local Bazaar sandbox; account setup is complete. "
+            "Call exactly ONE tool per turn. Use observed results; omitted data is unknown. "
+            "Explore beyond known findings. "
+            'Without native tools return {"tool":"name","arguments":{}}. '
+            f"Role: {self.role}."
+        )
+
+    def messages(self) -> list[dict]:
+        return [
+            {"role": "system", "content": self._system_prompt()},
+            {
+                "role": "user",
+                "content": "Actor state: "
+                + stable_json(
+                    {
+                        "account_id": self.seeded_user_id,
+                        "completed_actions": self.step,
+                        "objective": self.objective,
+                        "score": self.score_desc,
+                    }
+                ),
+            },
+            *self.history,
+        ]
+
+    def _cancelled(self):
+        return bool(
+            (self.cancelled and self.cancelled())
+            or self.budget.uncertain
+            or (self.budget.parent and self.budget.parent.uncertain)
         )
 
     def _register_account(self) -> bool:
@@ -185,10 +219,14 @@ class AgentLoop:
             raise RuntimeError("a token budget is required before a model call")
         tools = None if summary else self.tool_defs
         reservation, cap = self.budget.reserve(messages, tools, 120 if summary else 512)
+        size = len(stable_json({"messages": messages, "tools": tools}).encode())
+        self.prompt_bytes = size
+        self.max_prompt_bytes = max(size, self.max_prompt_bytes)
         kwargs = {"model": self.model, "messages": messages, "max_tokens": cap, "seed": self.seed}
         if tools:
             kwargs.update(tools=tools, tool_choice="auto", parallel_tool_calls=False)
-        if "api.groq.com" in str(self.client.base_url) and self.model.startswith("openai/gpt-oss"):
+        groq_cache = is_groq_cache(self.client.base_url, self.model)
+        if groq_cache:
             kwargs["extra_body"] = {"reasoning_effort": "low"}
             if tools:
                 kwargs["extra_body"]["disable_tool_validation"] = True
@@ -196,14 +234,21 @@ class AgentLoop:
             # Rough tokenizer estimate is for rate pacing only, never cost admission.
             estimate = len(json.dumps(messages + (tools or [])).encode()) // 3 + 128
             try:
-                rate_reservation = self.pacer.wait(estimate, cap, self.cancelled)
+                rate_reservation = self.pacer.wait(estimate, cap, self._cancelled)
             except BudgetExhausted:
                 self.budget.release(reservation)
                 raise
+        if self._cancelled():
+            self.budget.release(reservation)
+            if self.pacer:
+                self.pacer.finish(rate_reservation, 0)
+            raise BudgetExhausted("Run stopped before provider dispatch")
         try:
-            response = self.client.chat.completions.create(**kwargs)
+            response, headers = completion_with_headers(self.client, kwargs)
         except Exception as exc:
             self.budget.fail(reservation)
+            if self.pacer:
+                self.pacer.observe(getattr(getattr(exc, "response", None), "headers", {}))
             body = getattr(exc, "body", {})
             details = body.get("error", body) if isinstance(body, dict) else {}
             code = (
@@ -219,7 +264,11 @@ class AgentLoop:
             ) from None
         tokens = self.budget.finish(reservation, response.usage)
         if self.pacer:
-            self.pacer.finish(rate_reservation, tokens)
+            from swarm.budget import usage_counts
+
+            cached = usage_counts(response.usage).cached if groq_cache else 0
+            self.pacer.finish(rate_reservation, tokens - cached)
+            self.pacer.observe(headers)
         self.provider_receipts.append(
             {
                 "id": response.id,
@@ -232,8 +281,12 @@ class AgentLoop:
         return response, tokens
 
     def _append_turn(self, messages: list[dict]) -> None:
-        self._turns.append(messages)
         self.history.extend(messages)
+
+    def reset_idle(self):
+        self.context.reset_idle()
+        if self.context.policy.enabled:
+            self.history = self.context.messages()
 
     def observe(self, events) -> None:
         """Share account-local observations and public marketplace notices only."""
@@ -258,6 +311,11 @@ class AgentLoop:
                     {"notice": "A purchase completed; inspect your sales for orders to fulfil."}
                 )
         if observations:
+            if self.context.policy.enabled:
+                for observation in observations:
+                    self.context.observe(observation)
+                self.history = self.context.messages()
+                return
             self._append_turn(
                 [
                     {
@@ -268,41 +326,35 @@ class AgentLoop:
                 ]
             )
 
-    def _maybe_summarise(self) -> None:
-        if (
-            self.step == 0
-            or self.step % MEMORY_SUMMARY_INTERVAL
-            or self._summary_at == self.step
-            or len(self._turns) <= MEMORY_KEEP_RECENT
-        ):
+    def known_finding(self, finding) -> None:
+        if not self.context.policy.enabled or not finding.verified:
             return
-        old = self._turns[:-MEMORY_KEEP_RECENT]
-        response, _ = self._model_call(
-            [
+        operations = []
+        for step in finding.minimal_repro_sequence.steps:
+            for action in step.actions:
+                if action.agent_id != self.agent_id:
+                    continue
+                body = action.request.json_body
+                resources = (
+                    {key: value for key, value in body.items() if key.endswith("_id")}
+                    if isinstance(body, dict)
+                    else {}
+                )
+                operation = {
+                    "method": action.request.method,
+                    "path": action.request.path,
+                    "resources": resources,
+                }
+                if operation not in operations:
+                    operations.append(operation)
+        if operations:
+            self.context.notice(
                 {
-                    "role": "system",
-                    "content": "Summarise earlier actions and results in 3 sentences.",
-                },
-                {
-                    "role": "user",
-                    "content": json.dumps(
-                        self.history[
-                            : -sum(len(turn) for turn in self._turns[-MEMORY_KEEP_RECENT:])
-                        ]
-                    ),
-                },
-            ],
-            summary=True,
-        )
-        self._turns = self._turns[len(old) :]
-        self.history = [
-            {
-                "role": "user",
-                "content": "Earlier actions: " + (response.choices[0].message.content or ""),
-            },
-            *[message for turn in self._turns for message in turn],
-        ]
-        self._summary_at = self.step
+                    "verified_operations": operations[:4],
+                    "hint": "Already reproduced; explore another scenario.",
+                }
+            )
+            self.history = self.context.messages()
 
     def _extract_action(self, response) -> tuple[str, dict] | None:
         message = response.choices[0].message
@@ -333,16 +385,17 @@ class AgentLoop:
     def decide(self) -> Decision | None:
         if self.done or self.stopped:
             return None
+        policy = self.context.policy
+        if policy.idle_read_limit and self.context.read_count >= policy.idle_read_limit:
+            self.stopped, self.stop_reason = True, "unchanged_reads"
+            return None
         try:
-            self._maybe_summarise()
-            response, tokens = self._model_call(
-                [{"role": "system", "content": self._system_prompt()}, *self.history]
-            )
-        except BudgetExhausted:
-            self.stopped = True
+            response, tokens = self._model_call(self.messages())
+        except BudgetExhausted as exc:
+            self.stopped, self.stop_reason = True, str(exc)
             return None
         except BudgetAccountingError as exc:
-            self.error, self.stopped = str(exc), True
+            self.error, self.stopped, self.stop_reason = str(exc), True, "unknown_usage"
             return None
         action = self._extract_action(response)
         if action is not None:
@@ -359,18 +412,24 @@ class AgentLoop:
                 }
                 action = name, arguments
                 request = self.adapter.prepare_request(*action)
+                self._invalid_streak = 0
                 return Decision(*action, request, tokens, response.choices[0].message)
             except (ValueError, TypeError, KeyError, ValidationError):
                 self.invalid_tool_calls += 1
-        self._append_turn(
-            [
-                {"role": "assistant", "content": "Invalid tool decision."},
-                {
-                    "role": "user",
-                    "content": "Call exactly one permitted tool with valid arguments.",
-                },
-            ]
-        )
+        self._invalid_streak += 1
+        if policy.invalid_decision_limit and self._invalid_streak >= policy.invalid_decision_limit:
+            self.stopped, self.stop_reason = True, "invalid_decisions"
+        correction = [
+            {"role": "assistant", "content": "Invalid tool decision."},
+            {
+                "role": "user",
+                "content": "Call exactly one permitted tool with valid arguments.",
+            },
+        ]
+        if policy.enabled:
+            self.history = [*self.context.messages(), *correction]
+        else:
+            self._append_turn(correction)
         return None
 
     def execute(self, decision: Decision, slot: EventSlot) -> Event:
@@ -389,31 +448,61 @@ class AgentLoop:
             error="transport failure" if status is None else None,
         )
         message = decision.message
+        visible_body = body
+        if self.context.policy.enabled:
+            try:
+                result = json.loads(body)
+            except (ValueError, TypeError):
+                result = body
+            visible_body = stable_json(bounded_value(result, self.context.policy.result_bytes))
         if message.tool_calls:
             call = message.tool_calls[0]
             turn = [
                 {
                     "role": "assistant",
-                    "content": message.content,
+                    "content": None if self.context.policy.enabled else message.content,
                     "tool_calls": [
                         {
                             "id": call.id,
                             "type": "function",
                             "function": {
                                 "name": call.function.name,
-                                "arguments": call.function.arguments,
+                                "arguments": stable_json(
+                                    bounded_value(
+                                        json.loads(call.function.arguments),
+                                        self.context.policy.result_bytes,
+                                    )
+                                )
+                                if self.context.policy.enabled
+                                else call.function.arguments,
                             },
                         }
                     ],
                 },
-                {"role": "tool", "tool_call_id": call.id, "content": body},
+                {"role": "tool", "tool_call_id": call.id, "content": visible_body},
             ]
         else:
             turn = [
-                {"role": "assistant", "content": message.content},
-                {"role": "user", "content": f"HTTP {status}: {body}"},
+                {
+                    "role": "assistant",
+                    "content": stable_json(
+                        {
+                            "tool": decision.tool,
+                            "arguments": bounded_value(
+                                decision.arguments, self.context.policy.result_bytes
+                            ),
+                        }
+                    )
+                    if self.context.policy.enabled
+                    else message.content,
+                },
+                {"role": "user", "content": f"HTTP {status}: {visible_body}"},
             ]
-        self._append_turn(turn)
+        if self.context.policy.enabled:
+            self.context.action(decision.tool, request, status, body, turn)
+            self.history = self.context.messages()
+        else:
+            self._append_turn(turn)
         self.step += 1
         if decision.tool == self.completion_tool and status is not None and 200 <= status < 300:
             self.score, self.done = 1, True
@@ -435,6 +524,15 @@ class AgentLoop:
             else 0.0,
             "used_json_fallback": self.used_fallback,
             "error": self.error,
+            "stop_reason": self.stop_reason,
+            "efficiency": {
+                **(self.budget.summary() if self.budget else {}),
+                "context_bytes": len(stable_json(self.history).encode()),
+                "last_prompt_bytes": self.prompt_bytes,
+                "max_prompt_bytes": self.max_prompt_bytes,
+                "compactions": self.context.compactions,
+                "repeat_redirections": self.context.redirections,
+            },
         }
 
     def run(self, max_steps: int = 40, max_tokens: int = 60000) -> dict:

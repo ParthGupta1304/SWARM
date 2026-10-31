@@ -117,7 +117,11 @@ def create_app(config, environment, output: Path, results: Path | None = None):
 
     async def measured(condition, selected=config):
         runner = RunCoordinator(
-            selected, store, api_key=credential(selected), hooks=make_hooks(selected, environment)
+            selected,
+            store,
+            api_key=credential(selected),
+            hooks=make_hooks(selected, environment),
+            context_dir=output / "memory",
         )
         state["coordinator"] = runner
         if state["stop_requested"]:

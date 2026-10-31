@@ -9,6 +9,7 @@ max_rounds: 8
 token_budget: 100000
 input_cost_per_million: 0.15
 output_cost_per_million: 0.6
+cached_input_cost_per_million: 0.075
 personas:
 - agent_id: buyer
   role: casual_buyer

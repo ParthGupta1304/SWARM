@@ -48,7 +48,8 @@ uv run --no-sync python -m swarm.demo --scripted --port 8081
 The [two-minute fallback](docs/demo/phase1-fallback.mp4) combines captured UI states
 with explicit manual/scripted/real-Groq labels.
 
-See [setup, budgets, bug semantics and acceptance](docs/phase1.md),
+See [context, caching and cost efficiency](docs/ai-efficiency.md),
+[setup, budgets, bug semantics and acceptance](docs/phase1.md),
 [demo script](docs/demo-script.md), and [current progress](progress.md).
 Direct/scripted checks establish software behavior; real AI results and human
 review must establish the benchmark gate. No detection-rate claim should be

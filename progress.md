@@ -1,3 +1,26 @@
+# AI efficiency — latest implementation
+
+Updated: 2026-10-31. The owner approved the written efficiency specification.
+
+- Implemented bounded deterministic JSON context, two recent complete tool turns,
+  relevant observation deduplication, stable role/tool prefixes, removal of
+  redundant tool descriptions/reasoning, and atomic local snapshots each round.
+- Added idle-read/invalid-decision stopping and scoped verified-finding hints.
+  All HTTP actions remain live; concurrent writes and independent replay remain.
+- Added actual cached-input accounting, optional cached pricing, conservative
+  admission, rate-header/Retry-After feedback and console/run efficiency metrics.
+  Independent judge accounting uses the same primitives with a separate budget.
+- Ten focused checks pass. Final scripted integration verified all eight
+  planted IDs, six comparison runs, telemetry, memory snapshots and stop. Both
+  frontend builds, wheel/sdist, lint/format and compilation passed.
+- Offline prompt-payload comparison: 4.87% fewer bytes on 60 recorded three-round
+  actor traces; 25.18% fewer bytes over an eight-round repeated-trace scenario.
+  These are not measured tokenizer counts, billed savings or live recall results.
+- Model, 10-agent population and round counts are retained. No Miko/Meko export,
+  paid A/B experiment or new credential is required. See `docs/ai-efficiency.md`.
+
+---
+
 # Phase 1 PRD completion — latest pass
 
 Updated: 2026-10-31. User approved the written addendum, changing the population

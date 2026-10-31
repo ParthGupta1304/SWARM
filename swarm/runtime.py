@@ -21,6 +21,7 @@ from detect.store import EventStore
 from memory.store import MemoryStore
 from swarm.agent import AgentLoop, Decision
 from swarm.budget import BudgetAccountingError, TokenBudget
+from swarm.context import ContextPolicy, fingerprint
 from swarm.events import EventSlot, RunEvents
 from swarm.provider import ProviderPacer
 
@@ -62,6 +63,8 @@ class RunConfig(BaseModel):
     # Set both to zero only for a provider known to be free, e.g. local Ollama.
     input_cost_per_million: float = Field(ge=0)
     output_cost_per_million: float = Field(ge=0)
+    cached_input_cost_per_million: float | None = Field(default=None, ge=0)
+    context: ContextPolicy = Field(default_factory=ContextPolicy)
     personas: list[Persona] = Field(min_length=1)
 
     @model_validator(mode="after")
@@ -106,6 +109,7 @@ class RunResult:
     finding_times_s: dict[str, float] = field(default_factory=dict)
     stopped: bool = False
     provenance: dict = field(default_factory=dict)
+    efficiency: dict = field(default_factory=dict)
 
     def benchmark_run(self) -> BenchmarkRun:
         if self.stopped:
@@ -132,10 +136,12 @@ class RunCoordinator:
         hooks: RuntimeHooks | None = None,
         memory: MemoryStore | None = None,
         jsonl_path: str | Path | None = None,
+        context_dir: str | Path = "artifacts/context",
     ):
         self.config, self.store, self.api_key = config, store, api_key
         self.hooks = hooks or RuntimeHooks()
         self.memory, self.jsonl_path = memory, jsonl_path
+        self.context_dir = Path(context_dir)
         self._stop = StopEvent()
 
     def stop(self) -> None:
@@ -167,6 +173,7 @@ class RunCoordinator:
             max_dollars=config.max_dollars,
             input_price=config.input_cost_per_million,
             output_price=config.output_cost_per_million,
+            cached_input_price=config.cached_input_cost_per_million,
         )
         pacer = ProviderPacer(config.requests_per_minute, config.tokens_per_minute)
         model_slots = asyncio.Semaphore(config.model_concurrency)
@@ -174,6 +181,24 @@ class RunCoordinator:
         agents = []
         pulse = None
         meter_round = -1
+
+        def efficiency():
+            return {
+                **budget.summary(),
+                "pacing_wait_s": pacer.wait_seconds,
+                "compactions": sum(a.context.compactions for a in agents),
+                "repeat_redirections": sum(a.context.redirections for a in agents),
+            }
+
+        async def save_context(batch, round_num):
+            for agent in batch:
+                await asyncio.to_thread(
+                    agent.context.save,
+                    self.context_dir / fingerprint(run_id)[:24],
+                    agent.agent_id,
+                    round_num,
+                    agent.step,
+                )
 
         async def publish(status: str, round_num: int | None = None):
             nonlocal meter_round
@@ -189,11 +214,8 @@ class RunCoordinator:
                         "round": meter_round,
                         "tokens_used": budget.used,
                         "token_budget": budget.limit,
-                        "cost_usd": (
-                            budget.prompt_tokens * config.input_cost_per_million
-                            + budget.completion_tokens * config.output_cost_per_million
-                        )
-                        / 1e6,
+                        "cost_usd": budget.cost_usd,
+                        "efficiency": efficiency(),
                         "elapsed_s": time.perf_counter() - started,
                         "agents": [agent.summary() for agent in agents],
                     }
@@ -215,10 +237,17 @@ class RunCoordinator:
                     tool_definitions=adapter.get_tool_definitions(persona.tools),
                     adapter=adapter,
                     events=events,
-                    budget=TokenBudget(persona.token_budget, parent=budget),
+                    budget=TokenBudget(
+                        persona.token_budget,
+                        parent=budget,
+                        input_price=config.input_cost_per_million,
+                        output_price=config.output_cost_per_million,
+                        cached_input_price=config.cached_input_cost_per_million,
+                    ),
                     completion_tool=persona.completion_tool,
                     seeded_user_id=persona.seeded_user_id,
                     fixed_arguments=persona.fixed_arguments,
+                    context_policy=config.context,
                 )
                 agent.max_steps = persona.max_steps
                 agent.pacer = pacer
@@ -229,11 +258,8 @@ class RunCoordinator:
                         self.memory.recall_agent_memory, config.project, agent.agent_id
                     )
                     if saved:
-                        import json
-
-                        agent.history = [
-                            {"role": "user", "content": "Prior run memory: " + json.dumps(saved)}
-                        ]
+                        agent.context.observe({"prior_run": saved})
+                        agent.history = agent.context.messages()
             await publish("running")
 
             async def meter_updates():
@@ -287,6 +313,7 @@ class RunCoordinator:
                         if decision is not None
                     ]
                     if not ready:
+                        await save_context(batch, round_num)
                         continue
                     if self.stopping():
                         break
@@ -333,6 +360,14 @@ class RunCoordinator:
                         raise RuntimeError("round failed; partial events retained") from errors[0]
                     latest = sorted(outcomes, key=lambda event: event.sequence)
                     causal.extend(latest)
+                    if any(
+                        event.request.method not in {"GET", "HEAD", "OPTIONS"}
+                        and event.response_status is not None
+                        and 200 <= event.response_status < 300
+                        for event in latest
+                    ):
+                        for agent in batch:
+                            agent.reset_idle()
                     for agent in batch:
                         agent.observe(latest)
                     if self.hooks.score:
@@ -361,10 +396,13 @@ class RunCoordinator:
                                 continue
                             findings.append(finding)
                             times[finding.id] = time.perf_counter() - started
+                            for agent in batch:
+                                agent.known_finding(finding)
                             if self.memory is not None and finding.verified:
                                 await asyncio.to_thread(
                                     self.memory.save_finding, config.project, finding
                                 )
+                    await save_context(batch, round_num)
             if self.memory is not None:
                 for agent in agents:
                     await asyncio.to_thread(
@@ -373,10 +411,7 @@ class RunCoordinator:
                         agent.agent_id,
                         agent.summary(),
                     )
-            cost = (
-                budget.prompt_tokens * config.input_cost_per_million
-                + budget.completion_tokens * config.output_cost_per_million
-            ) / 1_000_000
+            cost = budget.cost_usd
             await publish("stopped" if self.stopping() else "completed")
             result = RunResult(
                 run_id,
@@ -407,6 +442,7 @@ class RunCoordinator:
                     for receipt in agent.provider_receipts
                 ],
             }
+            result.efficiency = efficiency()
             if config.target == "bazaar":
                 import json
 

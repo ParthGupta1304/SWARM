@@ -6,8 +6,9 @@ from collections.abc import Sequence
 import openai
 
 from bench.metrics import BenchmarkRun
-from swarm.budget import TokenBudget
-from swarm.provider import ProviderPacer
+from swarm.budget import TokenBudget, usage_counts
+from swarm.context import stable_json
+from swarm.provider import ProviderPacer, completion_with_headers, is_groq_cache
 
 DESCRIPTIONS = {
     "E1": "Concurrent buyers purchase more units than initial stock",
@@ -34,6 +35,7 @@ def judge_findings(
         max_dollars=config.max_dollars,
         input_price=config.input_cost_per_million,
         output_price=config.output_cost_per_million,
+        cached_input_price=config.cached_input_cost_per_million,
     )
     pacer = ProviderPacer(config.requests_per_minute, config.tokens_per_minute)
     judgements = []
@@ -54,7 +56,7 @@ def judge_findings(
                 },
                 {
                     "role": "user",
-                    "content": json.dumps(
+                    "content": stable_json(
                         {
                             "catalog": {
                                 bug: {"type": kind, "description": DESCRIPTIONS[bug]}
@@ -88,23 +90,32 @@ def judge_findings(
             reservation, cap = budget.reserve(messages, None, 512)
             rate_reservation = pacer.wait(len(json.dumps(messages).encode()) // 3 + 128, cap)
             try:
-                response = client.chat.completions.create(
-                    model=config.model,
-                    messages=messages,
-                    max_tokens=cap,
-                    seed=config.seed,
-                    **(
-                        {"extra_body": {"reasoning_effort": "low"}}
-                        if "api.groq.com" in config.provider_base_url
-                        and config.model.startswith("openai/gpt-oss")
-                        else {}
+                response, headers = completion_with_headers(
+                    client,
+                    dict(
+                        model=config.model,
+                        messages=messages,
+                        max_tokens=cap,
+                        seed=config.seed,
+                        **(
+                            {"extra_body": {"reasoning_effort": "low"}}
+                            if is_groq_cache(config.provider_base_url, config.model)
+                            else {}
+                        ),
                     ),
                 )
-            except Exception:
+            except Exception as exc:
                 budget.fail(reservation)
+                pacer.observe(getattr(getattr(exc, "response", None), "headers", {}))
                 raise RuntimeError("evaluation judge usage is unknown") from None
             tokens = budget.finish(reservation, response.usage)
-            pacer.finish(rate_reservation, tokens)
+            cached = (
+                usage_counts(response.usage).cached
+                if is_groq_cache(config.provider_base_url, config.model)
+                else 0
+            )
+            pacer.finish(rate_reservation, tokens - cached)
+            pacer.observe(headers)
             content = response.choices[0].message.content or ""
             try:
                 data = json.loads(
@@ -127,10 +138,7 @@ def judge_findings(
                     "reason": str(data.get("reason", ""))[:1000],
                 }
             )
-    cost = (
-        budget.prompt_tokens * config.input_cost_per_million
-        + budget.completion_tokens * config.output_cost_per_million
-    ) / 1e6
+    cost = budget.cost_usd
     return {
         "status": "complete",
         "model": config.model,
@@ -139,4 +147,5 @@ def judge_findings(
         "cost_usd": cost,
         "judgements": judgements,
         "accounting": "Evaluator overhead, excluded from equal exploration budgets",
+        "efficiency": {**budget.summary(), "pacing_wait_s": pacer.wait_seconds},
     }

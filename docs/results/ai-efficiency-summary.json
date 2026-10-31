@@ -1,0 +1,24 @@
+{
+  "recorded_three_rounds": {
+    "traces": 60,
+    "legacy_bytes": 441963,
+    "optimized_bytes": 420446,
+    "reduction_percent": 4.87
+  },
+  "eight_round_repeated_trace": {
+    "traces": 60,
+    "legacy_bytes": 1826996,
+    "optimized_bytes": 1366919,
+    "reduction_percent": 25.18
+  },
+  "method": "Same recorded results and reconstructed minimal native decisions. Eight-round arm repeats recorded traces; no new discovery or paid model calls. Serialized bytes, not tokenizer counts or measured credits. Peer observations excluded from both arms.",
+  "software_checks": {
+    "focused_checks": 10,
+    "initial_scripted_integration": "pass: all eight planted IDs, six condition/seed runs and stop",
+    "final_scripted_integration": "pass: all eight planted IDs, six condition/seed runs, telemetry, bounded memory snapshots and stop",
+    "real_model_ab": "not run",
+    "frontend_builds": "pass: Bazaar and teammate React dashboard",
+    "package_build": "pass: wheel/sdist, required assets/configs, no .env or node_modules",
+    "clean_checkout_startup": "pending committed-copy check"
+  }
+}

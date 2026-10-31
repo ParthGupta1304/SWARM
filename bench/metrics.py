@@ -28,6 +28,7 @@ class BenchmarkRun(Contract):
     actor_count: int = Field(default=0, ge=0)
     provenance: dict = Field(default_factory=dict)
     assessments: dict[str, bool] = Field(default_factory=dict)
+    efficiency: dict = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def valid_run(self) -> BenchmarkRun:

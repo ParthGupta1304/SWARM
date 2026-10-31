@@ -13,4 +13,5 @@ openapi:
 check:
 	uv run --no-sync ruff check .
 	uv run --no-sync ruff format --check .
+	uv run --no-sync python -m unittest discover -s tests -v
 	uv run --no-sync python -m compileall -q swarm adapters apps dashboard detect verify bench memory

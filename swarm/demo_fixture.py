@@ -22,12 +22,24 @@ async def completion(request: Request):
     tools = body.get("tools", [])
     names = {tool["function"]["name"] for tool in tools}
     count = sum(message["role"] == "tool" for message in body["messages"])
+    for message in body["messages"]:
+        content = message.get("content") or ""
+        if content.startswith("Actor state: "):
+            count = json.loads(content.split(": ", 1)[1])["completed_actions"]
     match = re.search(r"Role: ([^.]+)", body["messages"][0]["content"]) if tools else None
     role = match.group(1) if match else ""
 
     def orders():
         # Prefer the latest account-scoped observation over earlier tool history.
         for message in reversed(body["messages"]):
+            content = message.get("content") or ""
+            if content.startswith("Local memory: "):
+                memory = json.loads(content.split(": ", 1)[1])
+                for entry in reversed(memory["observations"]):
+                    event = entry["value"]
+                    result = event.get("result")
+                    if event.get("operation") == "checkout" and isinstance(result, dict):
+                        return [{"id": result["order_id"], "buyer_id": event["request"]["user_id"]}]
             if message["role"] == "user" and message.get("content", "").startswith(
                 "Recent marketplace observations: "
             ):

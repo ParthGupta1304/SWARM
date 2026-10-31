@@ -1,7 +1,7 @@
 # AI efficiency improvements
 
 Date: 2026-10-31
-Status: Written specification awaiting owner review; implementation has not started.
+Status: Approved by owner (“continue”); implementation and direct checks completed.
 
 ## Request and chosen approach
 
@@ -45,7 +45,8 @@ implementation approval. No provider/model changes or new API keys are needed.
   the reusable prefix. Reuse deterministic role schemas during a run.
 - Save each agent's bounded context snapshot once per completed round as local
   JSON under the run's ignored artifact directory. Isolated actors and benchmark
-  runs do not import one another's snapshots. Raw evidence remains in event stores.
+  runs do not import one another's snapshots. Existing event evidence remains unchanged: full requests and response hashes,
+  plus parsed response JSON up to the existing 16,000-character limit.
 
 ## Repetition and verified findings
 
@@ -119,8 +120,8 @@ implementation approval. No provider/model changes or new API keys are needed.
 - [x] Compare configuration-only, local compaction and external/multi-model paths.
 - [x] Present concrete local design and write this specification.
 - [x] Self-review scope, consistency and acceptance criteria.
-- [ ] Owner reviews this written specification.
-- [ ] Produce the implementation sequence, implement and validate.
+- [x] Owner reviews this written specification.
+- [x] Produce the implementation sequence, implement and validate.
 
 ## Provider references
 

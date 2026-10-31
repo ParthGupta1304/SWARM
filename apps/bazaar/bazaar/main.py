@@ -505,6 +505,7 @@ def update_telemetry(payload: dict, db: Db):
         "cost_usd",
         "elapsed_s",
         "agents",
+        "efficiency",
     }
     if set(payload) - allowed:
         raise HTTPException(422, "unknown telemetry fields")
