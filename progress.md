@@ -5,7 +5,7 @@ Updated: 2026-10-31 (Asia/Kolkata)
 ## Dev3 — detection and replay feature
 
 - Working branch: `dev3/detection-verification`.
-- Status: feature complete and directly verified; delivery target is `main`.
+- Status: complete, directly verified, merged and pushed to GitHub `main`.
 - Implemented: versioned event/finding/replay models, append-only SQLite and
   Postgres event stores, SQL invariant runner, error capture, finding builder,
   concurrent HTTP replay and oracle gate, reports, benchmark metrics and local memory.
@@ -63,6 +63,11 @@ isolated/swarm benchmark callback and the later Meko MemoryStore adapter.
 - Live dashboard/SSE, Bazaar and the agent runtime remain Dev1/Dev2 deliverables.
 
 ## Delivery
+
+- Implementation commit: `50c9789`.
+- Verified feature merge published to main: `d69ddb5`.
+- Both `main` and `dev3/detection-verification` were pushed without force.
+- The temporary verification Postgres instance was stopped after the checks.
 
 The feature is developed on `dev3/detection-verification` and published to
 `main` only after the direct checks above pass. No force push is used.
