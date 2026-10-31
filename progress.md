@@ -1,3 +1,32 @@
+# Frontend integration — 2026-11-01
+
+- Merged the complete `frontend` reference branch without conflicts and preserved
+  its palette, typography, imagery and landing-page composition. The operational
+  dashboard is at `/dashboard`; Bazaar stays at `/bazaar/` and the fallback
+  console stays at `/console`.
+- Connected Start/Stop/Benchmark/Reset, history, catalog filters, recall/activity
+  charts, role/actor score tables, usage, report downloads, validated population/
+  budget/seed controls and runtime-compatible YAML export. Real replay and
+  evidence-bound human review preserve the original findings. Unknown precision
+  and unmeasured comparisons remain explicit; scripted evidence is labelled.
+- Ten frontend and 22 Python checks pass. Disposable real-SQLite integration
+  covers all eight planted fixture cases, six three-round comparison runs,
+  replay/review, stop, idle/active reset and reuse. Chrome checks pass supported
+  workflows at 390/768/1440px without runtime errors or page overflow. Additional
+  checks cover slider/SPA state, clipboard, errors and reconnect. Clean wheel
+  startup serves all pages/assets without Node or a model key; credential
+  exclusion, production build and lint/format checks pass.
+- These are software/scripted checks, not new Groq discovery results. Existing
+  run artifacts remain in their original workspace; previously deleted results
+  were not reconstructed. No paid run or external memory export was performed.
+- Implementation is on local `codex/frontend-integration`; no GitHub push is
+  part of this approved scope. Reloaded the idle Groq launcher on 8080 and
+  verified both frontends plus the fallback without starting a paid run or
+  resetting owner artifacts. See `docs/frontend.md` and the approved design in
+  `docs/superpowers/specs/2026-11-01-frontend-integration-design.md`.
+
+---
+
 # Workspace reset — 2026-11-01
 
 - Added a confirmed Reset workspace control to the console. It drains active

@@ -34,7 +34,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCliModal }) => {
       >
         <a
           aria-label="Swarmtest home"
-          href="#hero"
+          href="/#hero"
           className="flex items-center self-stretch rounded-full focus-visible:ring-2 focus-visible:ring-moss focus-visible:ring-offset-4 focus-visible:outline-none whitespace-nowrap shrink-0"
         >
           <span className="inline-flex items-center gap-2.5 text-ink translate-y-px">
@@ -49,7 +49,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCliModal }) => {
           <li>
             <a
               className="rounded-full px-3.5 py-2 text-[15px] font-medium text-ink/75 transition-colors hover:bg-sage hover:text-ink focus-visible:ring-2 focus-visible:ring-moss focus-visible:outline-none whitespace-nowrap shrink-0"
-              href="#workflow"
+              href="/#workflow"
             >
               How it works
             </a>
@@ -65,7 +65,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCliModal }) => {
           <li>
             <a
               className="rounded-full px-3.5 py-2 text-[15px] font-medium text-ink/75 transition-colors hover:bg-sage hover:text-ink focus-visible:ring-2 focus-visible:ring-moss focus-visible:outline-none whitespace-nowrap shrink-0"
-              href="#performance"
+              href="/dashboard"
             >
               Dashboard
             </a>

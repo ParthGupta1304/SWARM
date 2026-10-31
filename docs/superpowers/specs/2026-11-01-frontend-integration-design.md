@@ -1,7 +1,7 @@
 # Frontend branch integration for the working Phase 1 MVP
 
 Date: 2026-11-01
-Status: User selected the existing frontend design; written integration scope awaits review.
+Status: Written integration scope approved by the owner; implemented on `codex/frontend-integration`.
 Reference: `origin/frontend` at `8a801fb`.
 Working MVP base: `b0beace` (Groq, 10 actors, six regular rounds and workspace reset).
 
@@ -166,5 +166,5 @@ available in expandable evidence details rather than occupying the primary view.
 - [x] Resolve Phase 1 scope from the selected design and working MVP.
 - [x] Compare a static merge, direct replacement and shared typed data integration.
 - [x] Recommend typed integration and write/self-review this specification.
-- [ ] Owner reviews the written integration scope.
-- [ ] Implement, visually verify, validate and reload.
+- [x] Owner reviews the written integration scope.
+- [x] Implement, visually verify, validate and reload.

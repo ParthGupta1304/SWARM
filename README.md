@@ -14,7 +14,9 @@ uv run --no-sync python -m swarm.demo
 ```
 
 Open [Bazaar](http://127.0.0.1:8080/bazaar/) to browse and shop, or the
-[Swarmtest console](http://127.0.0.1:8080/) to run agents and inspect findings.
+[Swarmtest dashboard](http://127.0.0.1:8080/dashboard) to run agents and inspect findings.
+The [home page](http://127.0.0.1:8080/) uses the team's `frontend` branch design;
+the earlier console remains at [/console](http://127.0.0.1:8080/console).
 The React storefront uses the same live Bazaar instance as the agents.
 The launcher owns separate live/replay targets and stops them on exit.
 Use **Reset workspace** in the console to stop active work, clear its local
@@ -60,20 +62,22 @@ inferred from a scripted rehearsal.
 
 ## Development
 
-Python 3.11+ and uv are required. Compiled storefront assets are included;
-Node is needed only when editing them:
+Python 3.11+ and uv are required. Compiled dashboard and storefront assets are
+included, so Python startup does not need Node. For frontend edits use Node
+22.12+ and npm:
 
 ```sh
 make frontend
 make check
 ```
 
-The teammate React dashboard source is also preserved in `dashboard/`. The
-Python launcher serves the full run console from `dashboard/console.html`.
-To develop the separate read-only React viewer, run `npm ci --prefix dashboard`
-and `npm run dev --prefix dashboard -- --host 127.0.0.1`; it connects to a
-standalone Bazaar API at `http://localhost:8000` by default. Override
-`VITE_BAZAAR_API_URL` when using another API address.
+The primary React/TypeScript UI is in `frontend/`. Its build goes into
+`dashboard/site/`, served by the same Python launcher as Bazaar and the APIs.
+For hot reload, start the Python launcher on 8080, then run `npm ci --prefix
+frontend` and `npm run dev --prefix frontend` (port 3000). The development proxy
+keeps requests on the same origin. Provider keys belong only in the root `.env`.
+The original read-only Dev1 viewer source remains in `dashboard/`; it is not the
+primary run interface. See [frontend usage and checks](docs/frontend.md).
 
 
 | Owner | Modules |

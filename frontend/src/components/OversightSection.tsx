@@ -1,9 +1,26 @@
-import React, { useState } from 'react';
-import { BrandLogo } from './Navbar';
+import React, { useEffect, useState } from "react";
+import { BrandLogo } from "./Navbar";
+import { useConsole } from "../lib/console";
 
 export const OversightSection: React.FC = () => {
-  const [replayVerified, setReplayVerified] = useState(false);
+  const c = useConsole(),
+    finding = c.finding;
+  const check =
+    finding && c.state?.recheck && c.state.recheck.finding_id === finding.id
+      ? c.state.recheck
+      : c.run?.rechecks?.filter((r) => r.finding_id === finding?.id).at(-1);
+  const replayVerified = !!finding?.verified;
+  const [reviewer, setReviewer] = useState(""),
+    [note, setNote] = useState(""),
+    [decision, setDecision] = useState("correct"),
+    [reviewStatus, setReviewStatus] = useState("");
   const [showReproSteps, setShowReproSteps] = useState(false);
+  useEffect(() => {
+    setReviewer("");
+    setNote("");
+    setReviewStatus("");
+    setShowReproSteps(false);
+  }, [finding?.id, c.state?.generation]);
 
   return (
     <section
@@ -24,7 +41,9 @@ export const OversightSection: React.FC = () => {
             Deterministic proof on a fresh database snapshot.
           </h2>
           <p className="mt-5 max-w-[46ch] text-[17px] leading-relaxed text-muted-foreground">
-            LLM nondeterminism is removed at verification time. Invariant checks come first, LLM triage comes second, and nothing is reported unverified without a clear label.
+            LLM nondeterminism is removed at verification time. Invariant checks
+            come first, LLM triage comes second, and nothing is reported
+            unverified without a clear label.
           </p>
 
           <ul className="mt-10 space-y-7">
@@ -52,7 +71,9 @@ export const OversightSection: React.FC = () => {
                   SQL and Python invariant checks
                 </h3>
                 <p className="mt-1 text-[15.5px] leading-relaxed text-muted-foreground">
-                  Enforce core invariants across every event window: inventory never negative, money conserved, no duplicate refunds, and one review per verified purchase.
+                  Enforce core invariants across every event window: inventory
+                  never negative, money conserved, no duplicate refunds, and one
+                  review per verified purchase.
                 </p>
               </div>
             </li>
@@ -81,7 +102,9 @@ export const OversightSection: React.FC = () => {
                   Deterministic snapshot replay
                 </h3>
                 <p className="mt-1 text-[15.5px] leading-relaxed text-muted-foreground">
-                  Every run starts from a seeded database snapshot. The verifier extracts the minimal action sequence and replays it cleanly to confirm reproducibility.
+                  Every run starts from a seeded database snapshot. The verifier
+                  extracts the minimal action sequence and replays it cleanly to
+                  confirm reproducibility.
                 </p>
               </div>
             </li>
@@ -112,7 +135,9 @@ export const OversightSection: React.FC = () => {
                   Append-only event log & Meko memory
                 </h3>
                 <p className="mt-1 text-[15.5px] leading-relaxed text-muted-foreground">
-                  Every action, request, response hash, and DB change is recorded. Phase 2 saves verified checks to a Meko Datapack so regression re-checks require zero LLM calls.
+                  Every action, request, response hash, and DB change is
+                  recorded. Phase 2 saves verified checks to a Meko Datapack so
+                  regression re-checks require zero LLM calls.
                 </p>
               </div>
             </li>
@@ -135,17 +160,19 @@ export const OversightSection: React.FC = () => {
               className="pointer-events-none absolute top-6 left-6"
               style={
                 {
-                  '--tile': 'clamp(40px, 5vw, 64px)',
-                  '--tile-gap': '3px',
-                  width: 'calc(2 * (var(--tile) + var(--tile-gap)) - var(--tile-gap))',
-                  height: 'calc(3 * (var(--tile) + var(--tile-gap)) - var(--tile-gap))',
+                  "--tile": "clamp(40px, 5vw, 64px)",
+                  "--tile-gap": "3px",
+                  width:
+                    "calc(2 * (var(--tile) + var(--tile-gap)) - var(--tile-gap))",
+                  height:
+                    "calc(3 * (var(--tile) + var(--tile-gap)) - var(--tile-gap))",
                 } as React.CSSProperties
               }
             >
               {[
-                { col: 0, row: 0, delay: '0s' },
-                { col: 1, row: 1, delay: '-2.3s' },
-                { col: 0, row: 2, delay: '-4.6s' },
+                { col: 0, row: 0, delay: "0s" },
+                { col: 1, row: 1, delay: "-2.3s" },
+                { col: 0, row: 2, delay: "-4.6s" },
               ].map((t, idx) => (
                 <span
                   key={idx}
@@ -153,14 +180,14 @@ export const OversightSection: React.FC = () => {
                   style={{
                     left: `calc(${t.col} * (var(--tile) + var(--tile-gap)))`,
                     top: `calc(${t.row} * (var(--tile) + var(--tile-gap)))`,
-                    width: 'var(--tile)',
-                    height: 'var(--tile)',
-                    borderRadius: 'calc(var(--tile) * 0.17)',
+                    width: "var(--tile)",
+                    height: "var(--tile)",
+                    borderRadius: "calc(var(--tile) * 0.17)",
                   }}
                 >
                   <span
                     className="glass-tile absolute inset-0 motion-safe:animate-breathe"
-                    style={{ borderRadius: 'inherit', animationDelay: t.delay }}
+                    style={{ borderRadius: "inherit", animationDelay: t.delay }}
                   />
                 </span>
               ))}
@@ -172,17 +199,19 @@ export const OversightSection: React.FC = () => {
               className="pointer-events-none absolute right-6 bottom-6"
               style={
                 {
-                  '--tile': 'clamp(40px, 5vw, 64px)',
-                  '--tile-gap': '3px',
-                  width: 'calc(2 * (var(--tile) + var(--tile-gap)) - var(--tile-gap))',
-                  height: 'calc(3 * (var(--tile) + var(--tile-gap)) - var(--tile-gap))',
+                  "--tile": "clamp(40px, 5vw, 64px)",
+                  "--tile-gap": "3px",
+                  width:
+                    "calc(2 * (var(--tile) + var(--tile-gap)) - var(--tile-gap))",
+                  height:
+                    "calc(3 * (var(--tile) + var(--tile-gap)) - var(--tile-gap))",
                 } as React.CSSProperties
               }
             >
               {[
-                { col: 0, row: 0, delay: '-1.2s' },
-                { col: 1, row: 1, delay: '-3.5s' },
-                { col: 0, row: 2, delay: '-5.8s' },
+                { col: 0, row: 0, delay: "-1.2s" },
+                { col: 1, row: 1, delay: "-3.5s" },
+                { col: 0, row: 2, delay: "-5.8s" },
               ].map((t, idx) => (
                 <span
                   key={idx}
@@ -190,14 +219,14 @@ export const OversightSection: React.FC = () => {
                   style={{
                     left: `calc(${t.col} * (var(--tile) + var(--tile-gap)))`,
                     top: `calc(${t.row} * (var(--tile) + var(--tile-gap)))`,
-                    width: 'var(--tile)',
-                    height: 'var(--tile)',
-                    borderRadius: 'calc(var(--tile) * 0.17)',
+                    width: "var(--tile)",
+                    height: "var(--tile)",
+                    borderRadius: "calc(var(--tile) * 0.17)",
                   }}
                 >
                   <span
                     className="glass-tile absolute inset-0 motion-safe:animate-breathe"
-                    style={{ borderRadius: 'inherit', animationDelay: t.delay }}
+                    style={{ borderRadius: "inherit", animationDelay: t.delay }}
                   />
                 </span>
               ))}
@@ -206,7 +235,27 @@ export const OversightSection: React.FC = () => {
             {/* Interactive Verifier Card */}
             <div className="relative z-10 flex w-full max-w-[430px] flex-col gap-3">
               <div className="rounded-[28px] border border-white/85 bg-white/92 p-6 shadow-[0_32px_70px_-34px_rgba(20,23,15,0.55)] backdrop-blur-md">
-                <p className="sr-only">Interactive example of a finding verification</p>
+                <label className="mb-4 block text-[12px] text-muted-foreground">
+                  Finding evidence
+                  <select
+                    aria-label="Finding evidence"
+                    className="ui-select mt-1 w-full"
+                    value={finding?.id || ""}
+                    onChange={(e) => {
+                      c.setFindingId(e.target.value);
+                      setReviewStatus("");
+                    }}
+                  >
+                    <option value="" disabled>
+                      Select a finding
+                    </option>
+                    {c.findings.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.mapped_bug_id || "Unmapped"} · {f.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-meadow text-ink">
@@ -214,65 +263,192 @@ export const OversightSection: React.FC = () => {
                     </span>
                     <div>
                       <p className="text-[14.5px] font-semibold text-ink">
-                        Replay Verifier · E4
+                        Replay verifier ·{" "}
+                        {finding?.mapped_bug_id || "No finding selected"}
                       </p>
                       <p className="text-[12.5px] text-muted-foreground">
-                        Role: fraudster · Bazaar target
+                        {finding?.involved_agents.join(" + ") ||
+                          "Select a completed run"}{" "}
+                        · Bazaar target
                       </p>
                     </div>
                   </div>
                   <span
                     className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-semibold ${
                       replayVerified
-                        ? 'bg-sage text-moss'
-                        : 'bg-[#f8ead8] text-[#8a4b14]'
+                        ? "bg-sage text-moss"
+                        : "bg-[#f8ead8] text-[#8a4b14]"
                     }`}
                   >
                     <span
                       className={`size-1.5 rounded-full ${
-                        replayVerified ? 'bg-moss' : 'bg-[#c9701d]'
+                        replayVerified ? "bg-moss" : "bg-[#c9701d]"
                       }`}
                     />
-                    {replayVerified ? 'Verified' : 'Replay ready'}
+                    {finding
+                      ? replayVerified
+                        ? "Original verified"
+                        : "Original unverified"
+                      : "Awaiting evidence"}
                   </span>
                 </div>
 
                 <p className="mt-5 text-[16px] leading-snug text-ink">
-                  Emergent bug{' '}
-                  <strong className="font-semibold text-ink">E4 (Double refund)</strong>
-                  : Refund plus dispute credit pays out twice on concurrent requests.
+                  {finding?.title ||
+                    "Choose a finding from the dashboard to inspect its recorded reproduction and independent verification."}
                 </p>
 
                 <p className="mt-3.5 rounded-2xl bg-mist px-4 py-3 text-[13px] text-ink/80">
-                  Oracle triggered: <span className="font-mono font-medium">invariants.sql</span> (money conserved &amp; no duplicate refunds)
+                  Oracle:{" "}
+                  <span className="font-mono font-medium">
+                    {finding?.oracle_triggered || "—"}
+                  </span>
                 </p>
 
                 {showReproSteps && (
                   <div className="mt-3 rounded-2xl border border-border bg-white px-4 py-3 font-mono text-[11.5px] leading-relaxed text-ink/85">
-                    1. search &rarr; add_to_cart &rarr; checkout
-                    <br />
-                    2. barrier_burst(open_dispute, request_refund)
-                    <br />
-                    3. reset-db snapshot &rarr; deterministic replay
+                    {finding?.minimal_repro_sequence.steps.map((step, i) => (
+                      <div className="mb-2" key={i}>
+                        {i + 1}.{" "}
+                        {step.actions.length > 1 ? "Concurrent" : "Sequential"}
+                        <ul>
+                          {step.actions.map((action) => (
+                            <li key={action.event_id}>
+                              {action.agent_id}: {action.request.method}{" "}
+                              {action.request.path}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
                   </div>
                 )}
 
-                <div className="mt-4 grid grid-cols-2 gap-2.5">
+                <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                   <button
                     type="button"
-                    onClick={() => setReplayVerified((prev) => !prev)}
+                    disabled={
+                      !finding || c.state?.busy || c.pending || !c.connected
+                    }
+                    onClick={() => c.recheck().catch(() => {})}
                     className="inline-flex h-11 cursor-pointer items-center justify-center rounded-full bg-moss px-4 text-[14px] font-semibold text-white transition-colors hover:bg-moss-deep focus-visible:ring-2 focus-visible:ring-moss focus-visible:outline-none whitespace-nowrap"
                   >
-                    {replayVerified ? 'Replayed on fresh DB' : 'Replay on fresh DB'}
+                    {check?.status === "running"
+                      ? "Replaying…"
+                      : "Replay on fresh DB"}
                   </button>
                   <button
                     type="button"
+                    disabled={!finding}
                     onClick={() => setShowReproSteps((prev) => !prev)}
                     className="inline-flex h-11 cursor-pointer items-center justify-center rounded-full border border-border bg-white px-4 text-[14px] font-semibold text-ink transition-colors hover:bg-mist focus-visible:ring-2 focus-visible:ring-moss focus-visible:outline-none whitespace-nowrap"
                   >
-                    {showReproSteps ? 'Hide repro steps' : 'See repro sequence'}
+                    {showReproSteps ? "Hide repro steps" : "See repro sequence"}
                   </button>
                 </div>
+                {check && (
+                  <p
+                    role="status"
+                    className="mt-4 rounded-2xl bg-mist p-3 text-[12px]"
+                  >
+                    Recheck:{" "}
+                    {check.status === "completed"
+                      ? check.result?.status === "verified"
+                        ? "Reproduced"
+                        : check.result?.status === "not_reproduced"
+                          ? "Not reproduced"
+                          : "Inconclusive"
+                      : check.status}{" "}
+                    · target {check.target_version || "current"} · seed{" "}
+                    {check.seed ?? "—"}. Original evidence is preserved.
+                  </p>
+                )}
+                {finding && (
+                  <details className="mt-4 border-t border-border pt-3">
+                    <summary className="cursor-pointer text-[13px] font-semibold">
+                      Original proof and human spot-check
+                    </summary>
+                    <p className="my-3 text-xs text-muted-foreground">
+                      Replay does not automatically approve a finding.{" "}
+                      {c.run?.assessments?.[finding.id] === undefined
+                        ? "Not yet assessed."
+                        : c.run.assessments[finding.id]
+                          ? "Human/judge assessment: supported."
+                          : "Human/judge assessment: unsupported."}
+                    </p>
+                    <details>
+                      <summary className="cursor-pointer text-xs text-moss">
+                        Inspect complete evidence
+                      </summary>
+                      <pre className="mt-2 max-h-64 overflow-auto rounded-xl bg-mist p-3 text-[10px] whitespace-pre-wrap break-words">
+                        {JSON.stringify(finding, null, 2)}
+                      </pre>
+                    </details>
+                    <form
+                      className="mt-4 space-y-3"
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        setReviewStatus("");
+                        try {
+                          await c.review(
+                            decision === "correct",
+                            reviewer,
+                            note,
+                          );
+                          setReviewStatus(
+                            "Spot-check recorded against this evidence.",
+                          );
+                        } catch (error) {
+                          setReviewStatus((error as Error).message);
+                        }
+                      }}
+                    >
+                      <label className="block text-xs">
+                        Your name
+                        <input
+                          className="ui-select mt-1 w-full"
+                          required
+                          value={reviewer}
+                          onChange={(e) => setReviewer(e.target.value)}
+                        />
+                      </label>
+                      <label className="block text-xs">
+                        Evidence decision
+                        <select
+                          className="ui-select mt-1 w-full"
+                          value={decision}
+                          onChange={(e) => setDecision(e.target.value)}
+                        >
+                          <option value="correct">Supported by evidence</option>
+                          <option value="incorrect">Unsupported</option>
+                        </select>
+                      </label>
+                      <label className="block text-xs">
+                        Evidence note
+                        <textarea
+                          className="ui-select mt-1 w-full"
+                          required
+                          minLength={3}
+                          value={note}
+                          onChange={(e) => setNote(e.target.value)}
+                        />
+                      </label>
+                      <button
+                        className="ui-primary"
+                        disabled={
+                          c.pending ||
+                          c.state?.busy ||
+                          c.run?.status === "stopped"
+                        }
+                      >
+                        Record spot-check
+                      </button>
+                      <p role="status" className="text-xs">
+                        {reviewStatus}
+                      </p>
+                    </form>
+                  </details>
+                )}
               </div>
 
               {/* Bottom Pill Notification */}
@@ -284,7 +460,10 @@ export const OversightSection: React.FC = () => {
                   P2
                 </span>
                 <p className="text-[13px] leading-snug text-ink/85">
-                  <strong className="font-semibold text-ink">MemoryStore interface</strong> saves verified findings for deterministic Run 2 regression checks.
+                  <strong className="font-semibold text-ink">
+                    Planned for Phase 2:
+                  </strong>{" "}
+                  save verified findings for deterministic regression checks.
                 </p>
               </div>
             </div>

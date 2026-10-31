@@ -1,29 +1,66 @@
-import React from 'react';
-import { BENCHMARK_TICKET_SLOTS, TARGET_CATEGORIES } from '../utils/swarmConfig';
+import React from "react";
+import { useConsole } from "../lib/console";
+import {
+  recall,
+  precision,
+  percent,
+  duration,
+  repeatability,
+} from "../lib/metrics";
+import {
+  BENCHMARK_TICKET_SLOTS,
+  TARGET_CATEGORIES,
+} from "../utils/swarmConfig";
 
 const TOP_LEFT_OUTLINE_TILES = [
-  { col: 1, row: 0, delay: '0s', dur: '5s' },
-  { col: 3, row: 0, delay: '-1.7s', dur: '6s' },
-  { col: 4, row: 0, delay: '-3.4s', dur: '7s' },
-  { col: 0, row: 1, delay: '-5.1s', dur: '5s' },
-  { col: 2, row: 1, delay: '-0.8s', dur: '6s' },
-  { col: 3, row: 1, delay: '-2.5s', dur: '7s' },
-  { col: 5, row: 1, delay: '-4.2s', dur: '5s' },
-  { col: 1, row: 2, delay: '-5.9s', dur: '6s' },
+  { col: 1, row: 0, delay: "0s", dur: "5s" },
+  { col: 3, row: 0, delay: "-1.7s", dur: "6s" },
+  { col: 4, row: 0, delay: "-3.4s", dur: "7s" },
+  { col: 0, row: 1, delay: "-5.1s", dur: "5s" },
+  { col: 2, row: 1, delay: "-0.8s", dur: "6s" },
+  { col: 3, row: 1, delay: "-2.5s", dur: "7s" },
+  { col: 5, row: 1, delay: "-4.2s", dur: "5s" },
+  { col: 1, row: 2, delay: "-5.9s", dur: "6s" },
 ];
 
 const TOP_RIGHT_OUTLINE_TILES = [
-  { col: 1, row: 0, delay: '0s', dur: '5s' },
-  { col: 3, row: 0, delay: '-1.7s', dur: '6s' },
-  { col: 5, row: 0, delay: '-3.4s', dur: '7s' },
-  { col: 0, row: 1, delay: '-5.1s', dur: '5s' },
-  { col: 2, row: 1, delay: '-0.8s', dur: '6s' },
-  { col: 4, row: 1, delay: '-2.5s', dur: '7s' },
-  { col: 1, row: 2, delay: '-4.2s', dur: '5s' },
-  { col: 4, row: 2, delay: '-5.9s', dur: '6s' },
+  { col: 1, row: 0, delay: "0s", dur: "5s" },
+  { col: 3, row: 0, delay: "-1.7s", dur: "6s" },
+  { col: 5, row: 0, delay: "-3.4s", dur: "7s" },
+  { col: 0, row: 1, delay: "-5.1s", dur: "5s" },
+  { col: 2, row: 1, delay: "-0.8s", dur: "6s" },
+  { col: 4, row: 1, delay: "-2.5s", dur: "7s" },
+  { col: 1, row: 2, delay: "-4.2s", dur: "5s" },
+  { col: 4, row: 2, delay: "-5.9s", dur: "6s" },
 ];
 
 export const ProofSection: React.FC = () => {
+  const c = useConsole();
+  const m = c.benchmark?.conditions[c.condition]?.metrics;
+  const verified = new Set(
+    c.findings.filter((f) => f.verified).map((f) => f.id),
+  );
+  const times = Object.entries(c.run?.finding_times_s || {})
+    .filter(([id]) => verified.has(id))
+    .map(([, time]) => time);
+  const values = [
+    percent(
+      c.run
+        ? recall(c.findings, c.config?.bugs || [], "emergent")
+        : m?.emergent_recall?.mean,
+    ),
+    percent(c.run ? precision(c.run) : m?.precision_after_verifier?.mean),
+    duration(
+      times.length
+        ? Math.min(...times)
+        : (m?.time_to_first_find_s?.mean ?? undefined),
+    ),
+    percent(
+      repeatability(
+        c.benchmark?.runs.filter((r) => r.condition === c.condition) || [],
+      ),
+    ),
+  ];
   return (
     <section
       id="proof"
@@ -36,10 +73,12 @@ export const ProofSection: React.FC = () => {
         className="pointer-events-none absolute top-[-38px] left-[-24px] max-lg:hidden"
         style={
           {
-            '--tile': '76px',
-            '--tile-gap': '6px',
-            width: 'calc(6 * (var(--tile) + var(--tile-gap)) - var(--tile-gap))',
-            height: 'calc(3 * (var(--tile) + var(--tile-gap)) - var(--tile-gap))',
+            "--tile": "76px",
+            "--tile-gap": "6px",
+            width:
+              "calc(6 * (var(--tile) + var(--tile-gap)) - var(--tile-gap))",
+            height:
+              "calc(3 * (var(--tile) + var(--tile-gap)) - var(--tile-gap))",
           } as React.CSSProperties
         }
       >
@@ -50,9 +89,9 @@ export const ProofSection: React.FC = () => {
             style={{
               left: `calc(${t.col} * (var(--tile) + var(--tile-gap)))`,
               top: `calc(${t.row} * (var(--tile) + var(--tile-gap)))`,
-              width: 'var(--tile)',
-              height: 'var(--tile)',
-              borderRadius: 'calc(var(--tile) * 0.17)',
+              width: "var(--tile)",
+              height: "var(--tile)",
+              borderRadius: "calc(var(--tile) * 0.17)",
               animationDelay: t.delay,
               animationDuration: t.dur,
             }}
@@ -66,10 +105,12 @@ export const ProofSection: React.FC = () => {
         className="pointer-events-none absolute top-[-30px] right-[-30px] max-lg:hidden"
         style={
           {
-            '--tile': '76px',
-            '--tile-gap': '6px',
-            width: 'calc(6 * (var(--tile) + var(--tile-gap)) - var(--tile-gap))',
-            height: 'calc(3 * (var(--tile) + var(--tile-gap)) - var(--tile-gap))',
+            "--tile": "76px",
+            "--tile-gap": "6px",
+            width:
+              "calc(6 * (var(--tile) + var(--tile-gap)) - var(--tile-gap))",
+            height:
+              "calc(3 * (var(--tile) + var(--tile-gap)) - var(--tile-gap))",
           } as React.CSSProperties
         }
       >
@@ -80,9 +121,9 @@ export const ProofSection: React.FC = () => {
             style={{
               left: `calc(${t.col} * (var(--tile) + var(--tile-gap)))`,
               top: `calc(${t.row} * (var(--tile) + var(--tile-gap)))`,
-              width: 'var(--tile)',
-              height: 'var(--tile)',
-              borderRadius: 'calc(var(--tile) * 0.17)',
+              width: "var(--tile)",
+              height: "var(--tile)",
+              borderRadius: "calc(var(--tile) * 0.17)",
               animationDelay: t.delay,
               animationDuration: t.dur,
             }}
@@ -119,7 +160,7 @@ export const ProofSection: React.FC = () => {
           />
         </div>
 
-        {/* 4 Meadow Ticket Cards — Metric values intentionally blank per user instruction & PRD */}
+        {/* Four meadow tickets — selected run measurements */}
         <ul className="grid grid-cols-2 gap-3.5 sm:gap-5 lg:grid-cols-4">
           {BENCHMARK_TICKET_SLOTS.map((slot, idx) => (
             <li
@@ -141,10 +182,10 @@ export const ProofSection: React.FC = () => {
                 </p>
                 {/* Blank metric value area — no fabricated numbers */}
                 <p
-                  aria-label={`${slot.label} value pending measurement`}
+                  aria-label={`${slot.label}: ${values[idx]}`}
                   className="min-h-[44px] font-heading text-[clamp(2.3rem,4.3vw,3.65rem)] leading-none font-semibold tracking-[-0.035em] text-ink"
                 >
-                  {slot.value}
+                  {values[idx]}
                 </p>
               </div>
             </li>
@@ -163,12 +204,12 @@ export const ProofSection: React.FC = () => {
                   <span
                     className={`font-heading text-[24px] leading-none tracking-[-0.03em] text-ink/55 sm:text-[28px] ${
                       idx === 0
-                        ? 'font-bold'
+                        ? "font-bold"
                         : idx === 1
-                        ? 'font-medium'
-                        : idx === 2
-                        ? 'font-semibold italic'
-                        : 'font-semibold'
+                          ? "font-medium"
+                          : idx === 2
+                            ? "font-semibold italic"
+                            : "font-semibold"
                     }`}
                   >
                     {cat}

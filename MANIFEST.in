@@ -4,3 +4,5 @@ include apps/bazaar/web/vite.config.js
 include apps/bazaar/web/index.html
 recursive-include apps/bazaar/web/src *.jsx *.css
 recursive-include apps/bazaar/static *.js *.css *.html
+
+recursive-include dashboard/site *.html *.js *.css *.jpg *.png *.svg *.pdf *.woff2

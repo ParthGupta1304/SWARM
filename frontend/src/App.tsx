@@ -3,17 +3,59 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
-import { Navbar } from './components/Navbar';
-import { HeroSection } from './components/HeroSection';
-import { ProofSection } from './components/ProofSection';
-import { WorkflowSection } from './components/WorkflowSection';
-import { OversightSection } from './components/OversightSection';
-import { DashboardSection } from './components/DashboardSection';
-import { ValueSection } from './components/ValueSection';
-import { CtaAndFooter } from './components/CtaAndFooter';
+import { useEffect, useState } from "react";
+import { ConsoleProvider } from "./lib/console";
+import { Navbar } from "./components/Navbar";
+import { HeroSection } from "./components/HeroSection";
+import { ProofSection } from "./components/ProofSection";
+import { WorkflowSection } from "./components/WorkflowSection";
+import { OversightSection } from "./components/OversightSection";
+import { DashboardSection } from "./components/DashboardSection";
+import { ValueSection } from "./components/ValueSection";
+import { CtaAndFooter } from "./components/CtaAndFooter";
 
-export default function App() {
+function Shell() {
+  const [path, setPath] = useState(window.location.pathname);
+  const operational = path === "/dashboard";
+  useEffect(() => {
+    function update() {
+      setPath(location.pathname);
+      requestAnimationFrame(() => {
+        if (location.hash)
+          document.getElementById(location.hash.slice(1))?.scrollIntoView();
+        else window.scrollTo(0, 0);
+      });
+    }
+    function follow(event: MouseEvent) {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      )
+        return;
+      const link = (event.target as Element).closest("a");
+      if (!link || link.target || link.hasAttribute("download")) return;
+      const url = new URL(link.href);
+      if (
+        url.origin === location.origin &&
+        (url.pathname === "/" || url.pathname === "/dashboard") &&
+        !link.getAttribute("href")?.startsWith("#")
+      ) {
+        event.preventDefault();
+        history.pushState({}, "", url.pathname + url.hash);
+        update();
+      }
+    }
+    window.addEventListener("popstate", update);
+    document.addEventListener("click", follow);
+    return () => {
+      window.removeEventListener("popstate", update);
+      document.removeEventListener("click", follow);
+    };
+  }, []);
   const [isCliModalOpen, setIsCliModalOpen] = useState(false);
 
   return (
@@ -28,19 +70,38 @@ export default function App() {
       <Navbar onOpenCliModal={() => setIsCliModalOpen(true)} />
 
       <main id="main">
-        <HeroSection />
-        <ProofSection />
-        <WorkflowSection />
-        <OversightSection />
-        <DashboardSection />
-        <ValueSection onOpenCliModal={() => setIsCliModalOpen(true)} />
+        {operational ? (
+          <>
+            <DashboardSection compact />
+            <OversightSection />
+            <ValueSection onOpenCliModal={() => setIsCliModalOpen(true)} />
+          </>
+        ) : (
+          <>
+            <HeroSection />
+            <ProofSection />
+            <WorkflowSection />
+            <OversightSection />
+            <DashboardSection />
+            <ValueSection onOpenCliModal={() => setIsCliModalOpen(true)} />
+          </>
+        )}
       </main>
 
       <CtaAndFooter
+        compact={operational}
         isCliModalOpen={isCliModalOpen}
         onOpenCliModal={() => setIsCliModalOpen(true)}
         onCloseCliModal={() => setIsCliModalOpen(false)}
       />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ConsoleProvider>
+      <Shell />
+    </ConsoleProvider>
   );
 }

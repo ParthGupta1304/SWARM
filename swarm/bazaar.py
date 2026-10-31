@@ -19,12 +19,10 @@ BAZAAR_ROOT = Path(__file__).resolve().parent.parent / "apps" / "bazaar"
 
 
 def make_hooks(config: RunConfig, environment: BazaarEnvironment) -> RuntimeHooks:
-    live, replay = environment.live, environment.replay
+    live = environment.live
     if config.app_base_url != live.url:
         raise ValueError("runtime must use this environment's owned live target")
     invariants = load_invariants(config.invariants or BAZAAR_ROOT / "invariants.sql")
-    by_id = {inv.id: inv for inv in invariants}
-    replay_runner = replay.invariant_runner()
     client = httpx.AsyncClient(base_url=live.url, timeout=10)
 
     async def reset_live(seed):
@@ -34,23 +32,7 @@ def make_hooks(config: RunConfig, environment: BazaarEnvironment) -> RuntimeHook
         response = await client.post(path, json=payload)
         response.raise_for_status()
 
-    async def reset_replay(seed):
-        await asyncio.to_thread(replay.reset, seed)
-
-    async def oracle(name, results):
-        if name in by_id:
-            return await asyncio.to_thread(replay_runner.check, by_id[name]) is not None
-        if name.startswith("http:"):
-            return any(result.status_code == int(name.split(":")[1]) for result in results)
-        if name.startswith("log:"):
-            _, cls, method, path = name.split(":", 3)
-            rows = replay.rows("SELECT error_class, method, path FROM request_errors")
-            return any(row == {"error_class": cls, "method": method, "path": path} for row in rows)
-        if name == "python:write_redirect":
-            return any(300 <= result.status_code < 400 for result in results)
-        raise RuntimeError("oracle unavailable")
-
-    target = HTTPReplayTarget(replay.url, reset_snapshot=reset_replay, check_oracle=oracle)
+    verifier = make_verifier(config, environment)
     mapping = {inv.id: inv.id for inv in invariants}
     mapping.update(
         {"log:RuntimeError:GET:/api/items": "S4", "log:RuntimeError:POST:/api/checkout": "S1"}
@@ -63,7 +45,7 @@ def make_hooks(config: RunConfig, environment: BazaarEnvironment) -> RuntimeHook
         )
 
     pipeline = DetectionPipeline(
-        verifier=ReplayVerifier(target),
+        verifier=verifier,
         live_base_url=live.url,
         runner=live.invariant_runner(),
         invariants=invariants,
@@ -102,7 +84,7 @@ def make_hooks(config: RunConfig, environment: BazaarEnvironment) -> RuntimeHook
         return findings
 
     async def close():
-        await target.aclose()
+        await verifier.target.aclose()
         await client.aclose()
 
     return RuntimeHooks(
@@ -112,3 +94,30 @@ def make_hooks(config: RunConfig, environment: BazaarEnvironment) -> RuntimeHook
         progress=lambda payload: post("/api/runs/telemetry", payload),
         score=lambda: asyncio.to_thread(score_actors, config, live),
     )
+
+
+def make_verifier(config: RunConfig, environment: BazaarEnvironment, cancelled=None):
+    """Reuse owned seeded replay/oracles for explicit UI rechecks, without any LLM."""
+    replay = environment.replay
+    invariants = load_invariants(config.invariants or BAZAAR_ROOT / "invariants.sql")
+    by_id = {inv.id: inv for inv in invariants}
+    replay_runner = replay.invariant_runner()
+
+    async def reset_replay(seed):
+        await asyncio.to_thread(replay.reset, seed)
+
+    async def oracle(name, results):
+        if name in by_id:
+            return await asyncio.to_thread(replay_runner.check, by_id[name]) is not None
+        if name.startswith("http:"):
+            return any(result.status_code == int(name.split(":")[1]) for result in results)
+        if name.startswith("log:"):
+            _, cls, method, path = name.split(":", 3)
+            rows = replay.rows("SELECT error_class, method, path FROM request_errors")
+            return any(row == {"error_class": cls, "method": method, "path": path} for row in rows)
+        if name == "python:write_redirect":
+            return any(300 <= result.status_code < 400 for result in results)
+        raise RuntimeError("oracle unavailable")
+
+    target = HTTPReplayTarget(replay.url, reset_snapshot=reset_replay, check_oracle=oracle)
+    return ReplayVerifier(target, cancelled=cancelled)

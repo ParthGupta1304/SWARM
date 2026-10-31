@@ -147,7 +147,14 @@ class HTTPReplayTarget:
 
 
 class ReplayVerifier:
-    def __init__(self, target: ReplayTarget, *, attempts: int = 3, attempt_timeout: float = 30):
+    def __init__(
+        self,
+        target: ReplayTarget,
+        *,
+        attempts: int = 3,
+        attempt_timeout: float = 30,
+        cancelled=None,
+    ):
         if attempts < 1 or attempt_timeout <= 0:
             raise ValueError("attempts and attempt_timeout must be positive")
         self.target = target
@@ -155,6 +162,7 @@ class ReplayVerifier:
         self.attempt_timeout = attempt_timeout
         # Snapshot reset + replay + oracle must never interleave on this target.
         self._lock = asyncio.Lock()
+        self.cancelled = cancelled
 
     async def _attempt(self, plan: ReplayPlan, oracle: str) -> VerificationAttempt:
         results: list[ActionResult] = []
@@ -162,6 +170,8 @@ class ReplayVerifier:
             async with asyncio.timeout(self.attempt_timeout):
                 await self.target.reset(plan.seed)
                 for step in plan.steps:
+                    if self.cancelled and self.cancelled():
+                        raise RuntimeError("Replay stopped before next step")
                     barrier = asyncio.Barrier(len(step.actions))
 
                     async def perform(
@@ -198,6 +208,9 @@ class ReplayVerifier:
         outcomes = []
         async with self._lock:
             for _ in range(self.attempts):
+                if self.cancelled and self.cancelled():
+                    outcomes.append(VerificationAttempt(status="error", error="Stopped"))
+                    break
                 outcome = await self._attempt(
                     finding.minimal_repro_sequence, finding.oracle_triggered
                 )

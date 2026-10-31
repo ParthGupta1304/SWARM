@@ -2,6 +2,8 @@
 setup:
 	uv sync --locked --extra postgres --extra charts
 frontend:
+	npm ci --prefix frontend
+	npm run build --prefix frontend
 	npm ci --prefix apps/bazaar/web
 	npm run build --prefix apps/bazaar/web
 benchmark:

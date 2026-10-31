@@ -1,47 +1,56 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
+import { useConsole, download } from "../lib/console";
+import { money, foundIds } from "../lib/metrics";
 import {
   BUSINESS_OUTCOME_SLOTS,
-  DEFAULT_SWARM_PARAMS,
   computeSliderFillPercent,
-  generateSwarmYaml,
-} from '../utils/swarmConfig';
+} from "../utils/swarmConfig";
 
 interface ValueSectionProps {
   onOpenCliModal: () => void;
 }
 
 const VALUE_OUTLINE_TILES = [
-  { col: 0, row: 0, delay: '0s', dur: '5s' },
-  { col: 2, row: 0, delay: '-1.7s', dur: '6s' },
-  { col: 1, row: 1, delay: '-3.4s', dur: '7s' },
-  { col: 0, row: 2, delay: '-5.1s', dur: '5s' },
+  { col: 0, row: 0, delay: "0s", dur: "5s" },
+  { col: 2, row: 0, delay: "-1.7s", dur: "6s" },
+  { col: 1, row: 1, delay: "-3.4s", dur: "7s" },
+  { col: 0, row: 2, delay: "-5.1s", dur: "5s" },
 ];
 
-export const ValueSection: React.FC<ValueSectionProps> = ({ onOpenCliModal }) => {
-  const [casualBuyers, setCasualBuyers] = useState(
-    DEFAULT_SWARM_PARAMS.casualBuyerCount
-  );
-  const [adversaryCount, setAdversaryCount] = useState(
-    DEFAULT_SWARM_PARAMS.bargainHunterCount +
-      DEFAULT_SWARM_PARAMS.impatientClickerCount +
-      DEFAULT_SWARM_PARAMS.fraudsterCount +
-      DEFAULT_SWARM_PARAMS.sockpuppetCount +
-      DEFAULT_SWARM_PARAMS.trollCount
-  );
-  const [maxDollars, setMaxDollars] = useState(DEFAULT_SWARM_PARAMS.maxDollars);
+export const ValueSection: React.FC<ValueSectionProps> = ({
+  onOpenCliModal,
+}) => {
+  const c = useConsole();
+  const casualBuyers = c.options?.normal_agents || 2,
+    adversaryCount = c.options?.adversary_agents || 8,
+    maxDollars = c.options?.max_dollars ?? 0.5;
+  const cap = c.config?.population_cap || 10,
+    normalMax = cap - 5,
+    adversaryMax = cap - casualBuyers,
+    budgetMax = c.config?.max_dollars_cap || 0.5;
+  const setCasualBuyers = (n: number) => {
+    if (c.options)
+      c.setOptions({
+        ...c.options,
+        normal_agents: n,
+        adversary_agents: Math.min(adversaryCount, cap - n),
+      });
+  };
+  const setAdversaryCount = (n: number) => {
+    if (c.options) c.setOptions({ ...c.options, adversary_agents: n });
+  };
+  const setMaxDollars = (n: number) => {
+    if (c.options) c.setOptions({ ...c.options, max_dollars: n });
+  };
   const [showYamlPreview, setShowYamlPreview] = useState(false);
-
-  const yamlString = generateSwarmYaml({
-    casualBuyerCount: casualBuyers,
-    bargainHunterCount: Math.max(1, Math.round(adversaryCount * 0.28)),
-    impatientClickerCount: Math.max(1, Math.round(adversaryCount * 0.28)),
-    fraudsterCount: Math.max(1, Math.round(adversaryCount * 0.15)),
-    sockpuppetCount: Math.max(1, Math.round(adversaryCount * 0.15)),
-    trollCount: Math.max(1, Math.round(adversaryCount * 0.14)),
-    maxDollars,
-    seed: 1,
-  });
-
+  const yamlString =
+    c.yaml || c.configError || "Preparing a validated configuration…";
+  const unique = foundIds(c.findings).size;
+  const ticketValues = [
+    money(c.run?.cost_usd),
+    unique && c.run ? money(c.run.cost_usd / unique) : "—",
+    "Local CLI",
+  ];
   return (
     <section
       id="value"
@@ -54,10 +63,12 @@ export const ValueSection: React.FC<ValueSectionProps> = ({ onOpenCliModal }) =>
         className="pointer-events-none absolute top-16 -left-5 max-lg:hidden"
         style={
           {
-            '--tile': '64px',
-            '--tile-gap': '6px',
-            width: 'calc(3 * (var(--tile) + var(--tile-gap)) - var(--tile-gap))',
-            height: 'calc(3 * (var(--tile) + var(--tile-gap)) - var(--tile-gap))',
+            "--tile": "64px",
+            "--tile-gap": "6px",
+            width:
+              "calc(3 * (var(--tile) + var(--tile-gap)) - var(--tile-gap))",
+            height:
+              "calc(3 * (var(--tile) + var(--tile-gap)) - var(--tile-gap))",
           } as React.CSSProperties
         }
       >
@@ -68,9 +79,9 @@ export const ValueSection: React.FC<ValueSectionProps> = ({ onOpenCliModal }) =>
             style={{
               left: `calc(${t.col} * (var(--tile) + var(--tile-gap)))`,
               top: `calc(${t.row} * (var(--tile) + var(--tile-gap)))`,
-              width: 'var(--tile)',
-              height: 'var(--tile)',
-              borderRadius: 'calc(var(--tile) * 0.17)',
+              width: "var(--tile)",
+              height: "var(--tile)",
+              borderRadius: "calc(var(--tile) * 0.17)",
               animationDelay: t.delay,
               animationDuration: t.dur,
             }}
@@ -91,11 +102,13 @@ export const ValueSection: React.FC<ValueSectionProps> = ({ onOpenCliModal }) =>
           Regression is deterministic.
         </h2>
         <p className="mt-5 max-w-[54ch] text-[17px] leading-relaxed text-muted-foreground">
-          Configure your population mix and hard budget cap in swarmtest.yaml. Every verified exploit becomes a deterministic replay that re-runs on later releases with zero LLM calls.
+          Configure your population mix and hard budget cap in swarmtest.yaml.
+          Inspect recorded findings and repeat their API sequence on a fresh
+          local database without another model call.
         </p>
       </div>
 
-      {/* 2-Column Grid: Sliders (Left) + Blank Metric Tickets (Right) */}
+      {/* 2-Column Grid: Sliders (Left) + Measured value tickets (Right) */}
       <div className="mx-auto mt-14 grid w-full max-w-[1100px] gap-5 px-5 sm:px-8 lg:grid-cols-[1.1fr_1fr]">
         {/* Left Card: Configuration Sliders */}
         <div className="flex flex-col justify-center gap-8 rounded-[34px] border border-border bg-white p-7 shadow-[0_30px_80px_-60px_rgba(20,23,15,0.45)] sm:p-10">
@@ -105,7 +118,7 @@ export const ValueSection: React.FC<ValueSectionProps> = ({ onOpenCliModal }) =>
                 htmlFor="slider-casual-buyers"
                 className="text-[15.5px] font-medium text-ink"
               >
-                Normal community users (casual_buyer)
+                Normal community agents
               </label>
               <output
                 htmlFor="slider-casual-buyers"
@@ -120,15 +133,15 @@ export const ValueSection: React.FC<ValueSectionProps> = ({ onOpenCliModal }) =>
             <input
               id="slider-casual-buyers"
               type="range"
-              min={2}
-              max={30}
+              min={1}
+              max={normalMax}
               step={1}
               value={casualBuyers}
               onChange={(e) => setCasualBuyers(Number(e.target.value))}
               className="range-moss mt-5"
               style={
                 {
-                  '--fill': `${computeSliderFillPercent(casualBuyers, 2, 30)}%`,
+                  "--fill": `${computeSliderFillPercent(casualBuyers, 1, normalMax)}%`,
                 } as React.CSSProperties
               }
             />
@@ -136,8 +149,8 @@ export const ValueSection: React.FC<ValueSectionProps> = ({ onOpenCliModal }) =>
               aria-hidden="true"
               className="mt-2 flex justify-between text-[12px] text-muted-foreground"
             >
-              <span>2</span>
-              <span>30</span>
+              <span>1</span>
+              <span>{normalMax}</span>
             </div>
           </div>
 
@@ -157,20 +170,21 @@ export const ValueSection: React.FC<ValueSectionProps> = ({ onOpenCliModal }) =>
               </output>
             </div>
             <p className="mt-1 text-[13.5px] text-muted-foreground">
-              Bargain hunters, impatient clickers, fraudsters, sock puppets, and trolls.
+              Bargain hunters, impatient clickers, fraudsters, sock puppets, and
+              trolls.
             </p>
             <input
               id="slider-adversaries"
               type="range"
               min={5}
-              max={40}
+              max={adversaryMax}
               step={1}
               value={adversaryCount}
               onChange={(e) => setAdversaryCount(Number(e.target.value))}
               className="range-moss mt-5"
               style={
                 {
-                  '--fill': `${computeSliderFillPercent(adversaryCount, 5, 40)}%`,
+                  "--fill": `${computeSliderFillPercent(adversaryCount, 5, adversaryMax)}%`,
                 } as React.CSSProperties
               }
             />
@@ -179,7 +193,7 @@ export const ValueSection: React.FC<ValueSectionProps> = ({ onOpenCliModal }) =>
               className="mt-2 flex justify-between text-[12px] text-muted-foreground"
             >
               <span>5</span>
-              <span>40</span>
+              <span>{adversaryMax}</span>
             </div>
           </div>
 
@@ -189,7 +203,7 @@ export const ValueSection: React.FC<ValueSectionProps> = ({ onOpenCliModal }) =>
                 htmlFor="slider-budget-cap"
                 className="text-[15.5px] font-medium text-ink"
               >
-                Hard budget cap (max_dollars)
+                Budget cap per run
               </label>
               <output
                 htmlFor="slider-budget-cap"
@@ -204,15 +218,15 @@ export const ValueSection: React.FC<ValueSectionProps> = ({ onOpenCliModal }) =>
             <input
               id="slider-budget-cap"
               type="range"
-              min={1}
-              max={25}
-              step={1}
+              min={0.01}
+              max={budgetMax}
+              step={0.01}
               value={maxDollars}
               onChange={(e) => setMaxDollars(Number(e.target.value))}
               className="range-moss mt-5"
               style={
                 {
-                  '--fill': `${computeSliderFillPercent(maxDollars, 1, 25)}%`,
+                  "--fill": `${computeSliderFillPercent(maxDollars, 0.01, budgetMax)}%`,
                 } as React.CSSProperties
               }
             />
@@ -220,18 +234,54 @@ export const ValueSection: React.FC<ValueSectionProps> = ({ onOpenCliModal }) =>
               aria-hidden="true"
               className="mt-2 flex justify-between text-[12px] text-muted-foreground"
             >
-              <span>$1</span>
-              <span>$25</span>
+              <span>$0.01</span>
+              <span>${budgetMax}</span>
             </div>
           </div>
 
+          <label className="block text-sm font-medium">
+            Development seed
+            <input
+              aria-label="Development seed"
+              className="ui-select mt-2 w-full"
+              type="number"
+              min={0}
+              max={2147483647}
+              value={c.options?.seed ?? 1}
+              onChange={(e) => {
+                if (c.options)
+                  c.setOptions({ ...c.options, seed: Number(e.target.value) });
+              }}
+            />
+            <span className="mt-1 block text-xs font-normal text-muted-foreground">
+              {casualBuyers + adversaryCount} of {cap} allowed agents · six
+              regular rounds. Lower populations can reduce interaction coverage.
+            </span>
+          </label>
           <div className="pt-1">
             <button
               type="button"
               onClick={() => setShowYamlPreview((prev) => !prev)}
               className="text-[13.5px] font-semibold text-moss underline underline-offset-4 hover:text-moss-deep cursor-pointer"
             >
-              {showYamlPreview ? 'Hide swarmtest.yaml preview' : 'Preview generated swarmtest.yaml'}
+              {showYamlPreview
+                ? "Hide swarmtest.yaml preview"
+                : "Preview generated swarmtest.yaml"}
+            </button>
+            {c.configError && (
+              <p role="alert" className="mt-3 text-sm text-red-800">
+                {c.configError}
+              </p>
+            )}
+            <button
+              type="button"
+              className="ui-secondary mt-4"
+              disabled={!c.yaml || !!c.configError}
+              onClick={() =>
+                download("swarmtest.yaml", c.yaml, "application/yaml")
+              }
+            >
+              Download swarmtest.yaml
             </button>
             {showYamlPreview && (
               <pre className="mt-3 overflow-x-auto rounded-2xl bg-mist p-4 font-mono text-[12px] leading-relaxed text-ink">
@@ -241,9 +291,9 @@ export const ValueSection: React.FC<ValueSectionProps> = ({ onOpenCliModal }) =>
           </div>
         </div>
 
-        {/* Right Column: 3 Ticket Cards with Strictly Blank Metric Areas */}
+        {/* Right Column: 3 Ticket Cards with Selected run values */}
         <div className="flex flex-col gap-5">
-          {/* Ticket 1: Measured cost per run (Blank value) */}
+          {/* Ticket 1: Measured cost per run */}
           <div
             data-testid="value-ticket-measured-run-cost"
             className="relative min-h-[168px]"
@@ -258,19 +308,19 @@ export const ValueSection: React.FC<ValueSectionProps> = ({ onOpenCliModal }) =>
               </p>
               <div>
                 <p
-                  aria-label="Measured cost per run blank"
+                  aria-label="Estimated cost per run"
                   className="min-h-[44px] font-heading text-[clamp(2.4rem,4vw,3.3rem)] leading-none font-semibold tracking-[-0.035em] text-ink tabular-nums"
                 >
-                  {BUSINESS_OUTCOME_SLOTS[0].value}
+                  {ticketValues[0]}
                 </p>
                 <p className="mt-2 text-[13px] text-ink/70">
-                  {BUSINESS_OUTCOME_SLOTS[0].sublabel}
+                  Measured estimate for the selected run; fixtures are labelled.
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Ticket 2: Cost per verified bug (Blank value) */}
+          {/* Ticket 2: Cost per verified bug */}
           <div
             data-testid="value-ticket-cost-per-verified-bug"
             className="relative min-h-[168px]"
@@ -285,19 +335,19 @@ export const ValueSection: React.FC<ValueSectionProps> = ({ onOpenCliModal }) =>
               </p>
               <div>
                 <p
-                  aria-label="Cost per verified bug blank"
+                  aria-label="Cost per distinct verified bug"
                   className="min-h-[44px] font-heading text-[clamp(2.4rem,4vw,3.3rem)] leading-none font-semibold tracking-[-0.035em] text-ink tabular-nums"
                 >
-                  {BUSINESS_OUTCOME_SLOTS[1].value}
+                  {ticketValues[1]}
                 </p>
                 <p className="mt-2 text-[13px] text-ink/70">
-                  {BUSINESS_OUTCOME_SLOTS[1].sublabel}
+                  Selected run cost divided by distinct verified bug IDs.
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Ticket 3: Hosted tier price per run (Blank value) + CTA */}
+          {/* Ticket 3: Hosted tier price per run + CTA */}
           <div
             data-testid="value-ticket-hosted-tier-pricing"
             className="relative min-h-[156px]"
@@ -309,13 +359,13 @@ export const ValueSection: React.FC<ValueSectionProps> = ({ onOpenCliModal }) =>
             <div className="relative flex h-full flex-wrap items-center justify-between gap-5 px-7 py-6 sm:px-9 sm:py-7">
               <div>
                 <p className="text-[14.5px] font-medium text-white/85">
-                  {BUSINESS_OUTCOME_SLOTS[2].label}
+                  Phase 1 distribution
                 </p>
                 <p
-                  aria-label="Hosted tier price per run blank"
+                  aria-label="Available mode"
                   className="mt-1 min-h-[38px] font-heading text-[clamp(2rem,3.4vw,2.75rem)] leading-none font-semibold tracking-[-0.035em] text-white tabular-nums"
                 >
-                  {BUSINESS_OUTCOME_SLOTS[2].value}
+                  {ticketValues[2]}
                 </p>
               </div>
               <button
