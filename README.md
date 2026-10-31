@@ -25,6 +25,11 @@ See [Dev3 integration and handoff](docs/dev3-integration.md) for public contract
 ownership, runtime integration, reset requirements and pending work. Exported
 JSON Schemas are under `docs/contracts/`.
 
+If a teammate cannot use Meko, follow the
+[shared context fallback](docs/team-context.md) and maintain a developer-owned
+handoff such as [Dev2's handoff](docs/handoffs/dev2.md). Code and committed
+context can be shared through GitHub while MCP is unavailable.
+
 ## Ownership
 
 | Owner | Modules and handoffs |

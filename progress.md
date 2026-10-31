@@ -2,6 +2,18 @@
 
 Updated: 2026-10-31 (Asia/Kolkata)
 
+## Team context update
+
+- Dev2 reports that Meko MCP is unavailable in his client. The root cause is
+  not diagnosed; his client details and redacted error are still needed.
+- GitHub fallback is documented in `docs/team-context.md`. Dev2 can commit
+  implementation context in `docs/handoffs/dev2.md` on his own feature branch.
+- The Dev2 handoff is currently an empty template, not an implementation update.
+- A connected agent can explicitly copy committed handoffs into Meko with the
+  original author, source branch and exact SHA. No automatic sync is installed.
+- Dev3 maintains this overall progress summary; developer-owned handoffs reduce
+  conflicting edits to the shared progress file.
+
 ## Dev3 — detection and replay feature
 
 - Working branch: `dev3/detection-verification`.
