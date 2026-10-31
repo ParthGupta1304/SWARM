@@ -19,6 +19,8 @@
     "real_model_ab": "not run",
     "frontend_builds": "pass: Bazaar and teammate React dashboard",
     "package_build": "pass: wheel/sdist, required assets/configs, no .env or node_modules",
-    "clean_checkout_startup": "pending committed-copy check"
-  }
+    "clean_checkout_startup": "pass: committed copy, console/efficiency UI, storefront/assets, state and seeded marketplace"
+  },
+  "baseline_commit": "7846cfa",
+  "implementation_commit": "392c0d9"
 }

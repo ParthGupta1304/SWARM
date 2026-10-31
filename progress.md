@@ -1,6 +1,6 @@
 # AI efficiency — latest implementation
 
-Updated: 2026-10-31. The owner approved the written efficiency specification.
+Updated: 2026-11-01. The owner approved the written efficiency specification.
 
 - Implemented bounded deterministic JSON context, two recent complete tool turns,
   relevant observation deduplication, stable role/tool prefixes, removal of
@@ -12,12 +12,14 @@ Updated: 2026-10-31. The owner approved the written efficiency specification.
   Independent judge accounting uses the same primitives with a separate budget.
 - Ten focused checks pass. Final scripted integration verified all eight
   planted IDs, six comparison runs, telemetry, memory snapshots and stop. Both
-  frontend builds, wheel/sdist, lint/format and compilation passed.
+  frontend builds, wheel/sdist, lint/format, compilation and startup from a
+  clean committed copy passed.
 - Offline prompt-payload comparison: 4.87% fewer bytes on 60 recorded three-round
   actor traces; 25.18% fewer bytes over an eight-round repeated-trace scenario.
   These are not measured tokenizer counts, billed savings or live recall results.
 - Model, 10-agent population and round counts are retained. No Miko/Meko export,
-  paid A/B experiment or new credential is required. See `docs/ai-efficiency.md`.
+  paid A/B experiment or new credential is required. Implementation commit:
+  `392c0d9` on `codex/ai-efficiency` (local; not pushed). See `docs/ai-efficiency.md`.
 
 ---
 

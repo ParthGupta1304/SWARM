@@ -97,7 +97,8 @@ Historical Groq acceptance results were not overwritten or relabelled.
 evidence, observation privacy, live repeated writes, idle/invalid stopping,
 cache and judge costs, conservative budgets, pacing and cancellation.
 The scripted console integration exercises all eight planted cases, all six
-comparison runs, telemetry, memory snapshots and stop. Scripted decisions and
+comparison runs, telemetry, memory snapshots and stop. Both frontend builds,
+wheel/sdist and clean-copy startup passed. Scripted decisions and
 usage are not evidence of live-model discovery or cost savings.
 
 An offline comparison used the same 60 actor traces from the earlier six real
