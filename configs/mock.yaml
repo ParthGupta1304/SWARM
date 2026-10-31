@@ -1,0 +1,23 @@
+project: mock-bazaar
+spec: ../openapi.json
+app_base_url: http://localhost:8001
+provider_base_url: http://localhost:11434/v1
+model: qwen2.5-coder:7b
+api_key_env: SWARMTEST_API_KEY
+seed: 1
+max_rounds: 12
+token_budget: 60000
+# Local Ollama has no per-token API charge. Set actual rates for paid providers.
+input_cost_per_million: 0
+output_cost_per_million: 0
+personas:
+  - agent_id: buyer-a
+    role: casual_buyer
+    objective: Browse items, add one item to your cart, and check out.
+    tools: [list_items, add_to_cart, checkout]
+    completion_tool: checkout
+  - agent_id: buyer-b
+    role: competing_buyer
+    objective: Buy an available item before another buyer does.
+    tools: [list_items, add_to_cart, checkout]
+    completion_tool: checkout

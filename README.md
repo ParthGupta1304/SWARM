@@ -1,9 +1,9 @@
 # Swarmtest
 
-Multi-agent testing for failures caused by interacting users. This first slice
-implements Dev3's event logging, detection, replay verification, reports,
-benchmark utilities and local memory. Bazaar, the swarm runtime and dashboard
-are separate teammate deliverables.
+Multi-agent testing for failures caused by interacting users. The runtime now
+connects OpenAPI-driven actors to Dev3 event logging, detection, independent
+replay, reports, benchmark utilities and local memory. A mock Bazaar supports
+direct checks; real Bazaar and the dashboard remain Dev1 deliverables.
 
 ## Development
 
@@ -20,6 +20,10 @@ extra for matplotlib charts. No model API key is required for Dev3's pipeline.
 Per the project owner's workflow, delivery uses direct feature smoke checks
 rather than a written test suite. Actual checks and their results are recorded
 in [progress.md](progress.md).
+
+See [runtime setup and Dev2/Dev3 integration](docs/dev2-integration.md) for
+configuration, concurrent/isolated execution, budgets and benchmark hooks.
+Run `uv run --no-sync python -m swarm --help` for the CLI.
 
 See [Dev3 integration and handoff](docs/dev3-integration.md) for public contracts,
 ownership, runtime integration, reset requirements and pending work. Exported

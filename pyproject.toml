@@ -15,7 +15,11 @@ dependencies = [
     "fastapi>=0.100.0",
     "uvicorn[standard]>=0.23.0",
     "pyyaml>=6.0",
+    "jsonschema>=4.23,<5",
 ]
+
+[project.scripts]
+swarmtest = "swarm.cli:main"
 
 [project.optional-dependencies]
 postgres = ["psycopg[binary]>=3.2,<4"]

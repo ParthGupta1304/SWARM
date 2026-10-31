@@ -1,281 +1,204 @@
-"""
-adapters/openapi.py — OpenAPI 3.x spec parser and dynamic HTTP tool generator.
+"""OpenAPI JSON-object tools and credential-free, replayable HTTP requests."""
 
-Translates any OpenAPI spec into:
-  1. OpenAI-compatible tool definitions (for LLM function calling).
-  2. A dynamic HTTP executor that routes tool calls to the correct endpoint,
-     interpolates path parameters, attaches query params, builds JSON bodies,
-     and manages auth headers.
+from __future__ import annotations
 
-Adding an endpoint to openapi.json immediately generates a callable tool
-with zero code modifications.
-"""
-
+import copy
 import json
-import time
 import re
+import time
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
+from urllib.parse import quote, urlsplit
+
 import requests
+from jsonschema import Draft202012Validator
+
+from detect.contracts import Request
+
+_SECRET_HEADERS = {"authorization", "cookie", "set-cookie", "x-api-key", "proxy-authorization"}
 
 
-def _resolve_ref(spec: dict, ref: str) -> dict:
-    """Resolve a '#/components/schemas/Name' reference in an OpenAPI spec."""
-    if not ref.startswith("#/"):
-        return {}
-    parts = ref.lstrip("#/").split("/")
-    curr = spec
-    for part in parts:
-        if isinstance(curr, dict) and part in curr:
-            curr = curr[part]
-        else:
-            return {}
-    return curr if isinstance(curr, dict) else {}
-
-
-def _clean_schema_property(prop: dict, spec: dict) -> dict:
-    """Simplify schema property for OpenAI tool calling compatibility."""
-    if "$ref" in prop:
-        resolved = _resolve_ref(spec, prop["$ref"])
-        return _clean_schema_property(resolved, spec)
-
-    cleaned = {}
-    if "type" in prop:
-        cleaned["type"] = prop["type"]
-    elif "anyOf" in prop:
-        # e.g. OpenAPI 3.1 nullable: anyOf: [{"type": "string"}, {"type": "null"}]
-        non_null = [t for t in prop["anyOf"] if t.get("type") != "null"]
-        if non_null and "type" in non_null[0]:
-            cleaned["type"] = non_null[0]["type"]
-        else:
-            cleaned["type"] = "string"
-    else:
-        cleaned["type"] = "string"
-
-    if "description" in prop:
-        cleaned["description"] = prop["description"]
-    elif "title" in prop:
-        cleaned["description"] = prop["title"]
-
-    if "enum" in prop:
-        cleaned["enum"] = prop["enum"]
-
-    if cleaned.get("type") == "array" and "items" in prop:
-        cleaned["items"] = _clean_schema_property(prop["items"], spec)
-
-    return cleaned
+def _resolve(spec: dict, value: Any, seen: tuple[str, ...] = ()) -> Any:
+    if isinstance(value, list):
+        return [_resolve(spec, item, seen) for item in value]
+    if not isinstance(value, dict):
+        return value
+    if "$ref" in value:
+        ref = value["$ref"]
+        if not ref.startswith("#/") or ref in seen:
+            raise ValueError(f"unsupported external or recursive OpenAPI reference: {ref}")
+        node = spec
+        for part in ref[2:].split("/"):
+            node = node[part.replace("~1", "/").replace("~0", "~")]
+        return _resolve(
+            spec, {**node, **{k: v for k, v in value.items() if k != "$ref"}}, (*seen, ref)
+        )
+    return {key: _resolve(spec, item, seen) for key, item in value.items()}
 
 
 class OpenAPIAdapter:
-    """
-    Loads an OpenAPI 3.x spec and exposes dynamic tools and an HTTP executor.
+    """Supports scalar path/query/header parameters and object JSON bodies.
+
+    Unsupported parameter serialization and ambiguous flattened names fail at
+    load time instead of silently producing a different request during replay.
     """
 
-    def __init__(self, spec_or_path: Union[str, Path, dict], base_url: str):
-        self.base_url = str(base_url).rstrip("/")
+    def __init__(self, spec_or_path: str | Path | dict, base_url: str):
+        origin = urlsplit(base_url)
+        if (
+            origin.scheme not in {"http", "https"}
+            or not origin.netloc
+            or origin.username
+            or origin.password
+            or origin.query
+            or origin.fragment
+            or origin.path not in {"", "/"}
+        ):
+            raise ValueError("base_url must be an HTTP(S) origin without embedded credentials")
+        self.base_url = base_url.rstrip("/")
         if isinstance(spec_or_path, (str, Path)):
-            spec_path = Path(spec_or_path)
-            if not spec_path.exists():
-                raise FileNotFoundError(f"OpenAPI spec not found at {spec_path.resolve()}")
-            with open(spec_path, "r", encoding="utf-8") as f:
-                self.spec = json.load(f)
+            self.spec = json.loads(Path(spec_or_path).read_text(encoding="utf-8"))
         else:
-            self.spec = spec_or_path
-
-        # Cache of operation metadata: op_id -> metadata
+            self.spec = copy.deepcopy(spec_or_path)
         self.operations: dict[str, dict] = {}
         self._parse_spec()
 
-    def _parse_spec(self):
-        """Parse paths and methods from the OpenAPI spec into operation metadata."""
-        paths = self.spec.get("paths", {})
-        for path, path_item in paths.items():
-            if not isinstance(path_item, dict):
-                continue
-            for method in ("get", "post", "put", "delete", "patch"):
-                if method not in path_item:
+    def _parse_spec(self) -> None:
+        for path, raw_item in self.spec.get("paths", {}).items():
+            item = _resolve(self.spec, raw_item)
+            for method in ("get", "post", "put", "delete", "patch", "head", "options"):
+                if method not in item:
                     continue
-                op = path_item[method]
-                if not isinstance(op, dict):
-                    continue
-
-                # Generate or take operationId
-                op_id = op.get("operationId")
-                if not op_id:
-                    clean_path = re.sub(r"[{}]", "", path).strip("/").replace("/", "_")
-                    op_id = f"{method}_{clean_path}" if clean_path else method
-
-                description = op.get("summary") or op.get("description") or f"{method.upper()} {path}"
-
-                # Parse parameters (path, query, header)
-                path_params = []
-                query_params = []
-                param_properties = {}
-                param_required = []
-
-                for param in op.get("parameters", []):
-                    if "$ref" in param:
-                        param = _resolve_ref(self.spec, param["$ref"])
-
-                    p_name = param.get("name")
-                    p_in = param.get("in")
-                    if not p_name or not p_in:
+                op = item[method]
+                clean_path = re.sub(r"[{}]", "", path).strip("/").replace("/", "_")
+                name = op.get("operationId") or f"{method}_{clean_path}".rstrip("_")
+                if name in self.operations:
+                    raise ValueError(f"duplicate operationId: {name}")
+                properties, required, parameters = {}, [], {}
+                # Operation-level parameters override path-level parameters.
+                merged = {
+                    (p["in"], p["name"]): p
+                    for p in [*item.get("parameters", []), *op.get("parameters", [])]
+                }
+                for (location, key), param in merged.items():
+                    if location == "header" and key.lower() in _SECRET_HEADERS | {"auth"}:
                         continue
-
-                    # Don't require LLM to provide Authorization header manually
-                    if p_in == "header" and p_name.lower() in ("authorization", "auth"):
-                        continue
-
-                    p_schema = param.get("schema", {})
-                    clean_prop = _clean_schema_property(p_schema, self.spec)
-                    if "description" in param and "description" not in clean_prop:
-                        clean_prop["description"] = param["description"]
-
-                    param_properties[p_name] = clean_prop
-
-                    if p_in == "path":
-                        path_params.append(p_name)
-                        param_required.append(p_name)
-                    elif p_in == "query":
-                        query_params.append(p_name)
-                        if param.get("required"):
-                            param_required.append(p_name)
-
-                # Parse requestBody (application/json)
-                body_properties = {}
-                body_required = []
-                req_body = op.get("requestBody")
-                if req_body:
-                    if "$ref" in req_body:
-                        req_body = _resolve_ref(self.spec, req_body["$ref"])
-                    content = req_body.get("content", {})
-                    json_media = content.get("application/json", {})
-                    schema = json_media.get("schema", {})
-                    if "$ref" in schema:
-                        schema = _resolve_ref(self.spec, schema["$ref"])
-
-                    if schema.get("type") == "object" or "properties" in schema:
-                        props = schema.get("properties", {})
-                        for k, v in props.items():
-                            body_properties[k] = _clean_schema_property(v, self.spec)
-                        body_required = schema.get("required", [])
-
-                # Combine all properties for the tool parameter definition
-                properties = {**param_properties, **body_properties}
-                required = list(dict.fromkeys(param_required + body_required))
-
-                self.operations[op_id] = {
-                    "operation_id": op_id,
+                    if location not in {"path", "query", "header"}:
+                        raise ValueError(f"unsupported parameter location: {location}")
+                    schema = param.get("schema", {"type": "string"})
+                    if schema.get("type") in {"object", "array"}:
+                        raise ValueError(f"unsupported parameter serialization: {name}.{key}")
+                    if key in properties:
+                        raise ValueError(f"ambiguous flattened parameter: {name}.{key}")
+                    properties[key] = schema
+                    parameters[key] = location
+                    if param.get("required") or location == "path":
+                        required.append(key)
+                body = op.get("requestBody")
+                body_keys = []
+                body_schema = None
+                if body:
+                    schema = body.get("content", {}).get("application/json", {}).get("schema")
+                    if not schema or schema.get("type", "object") != "object":
+                        raise ValueError(f"only object JSON request bodies supported: {name}")
+                    if any(key in schema for key in ("allOf", "anyOf", "oneOf")):
+                        raise ValueError(f"composed root request bodies are unsupported: {name}")
+                    body_schema = schema
+                    body_keys = list(schema.get("properties", {}))
+                    if set(properties) & set(body_keys):
+                        raise ValueError(f"body and parameter names overlap: {name}")
+                    properties.update(schema.get("properties", {}))
+                    required.extend(schema.get("required", []))
+                tool_schema = {
+                    "type": "object",
+                    "properties": properties,
+                    "required": list(dict.fromkeys(required)),
+                    "additionalProperties": False,
+                }
+                Draft202012Validator.check_schema(tool_schema)
+                self.operations[name] = {
                     "method": method.upper(),
                     "path": path,
-                    "description": description,
-                    "path_params": path_params,
-                    "query_params": query_params,
-                    "body_params": list(body_properties.keys()),
+                    "parameters": parameters,
+                    "body_keys": body_keys,
+                    "body_schema": body_schema,
+                    "has_body": bool(body),
+                    "schema": tool_schema,
                     "tool_definition": {
                         "type": "function",
                         "function": {
-                            "name": op_id,
-                            "description": description,
-                            "parameters": {
-                                "type": "object",
-                                "properties": properties,
-                                "required": required,
-                            },
+                            "name": name,
+                            "description": op.get("summary") or op.get("description") or name,
+                            "parameters": tool_schema,
                         },
                     },
                 }
 
-    def get_tool_definitions(self, tool_names: Optional[list[str]] = None) -> list[dict]:
-        """
-        Return OpenAI-format tool definitions.
-        If tool_names is provided, filters to only those operation IDs.
-        """
-        if tool_names is not None:
-            return [
-                self.operations[name]["tool_definition"]
-                for name in tool_names
-                if name in self.operations
-            ]
-        return [op["tool_definition"] for op in self.operations.values()]
-
     def get_tool_names(self) -> set[str]:
-        """Return all available operation IDs."""
-        return set(self.operations.keys())
+        return set(self.operations)
 
-    def execute_tool(
-        self,
-        tool_name: str,
-        arguments: dict[str, Any],
-        auth_token: str = "",
-        timeout: float = 10.0,
-    ) -> tuple[int, str, float]:
-        """
-        Execute an operation by its tool_name over HTTP against base_url.
+    def get_tool_definitions(self, tool_names: list[str] | None = None) -> list[dict]:
+        names = list(self.operations) if tool_names is None else tool_names
+        unknown = set(names) - set(self.operations)
+        if unknown:
+            raise ValueError(f"unknown tools: {sorted(unknown)}")
+        return [copy.deepcopy(self.operations[name]["tool_definition"]) for name in names]
 
-        Returns: (http_status_code, response_body_text, latency_ms)
-        """
-        t0 = time.perf_counter()
-        op = self.operations.get(tool_name)
-        if not op:
-            latency = (time.perf_counter() - t0) * 1000
-            return 400, json.dumps({"error": f"unknown tool: {tool_name}"}), latency
-
-        method = op["method"]
-        path_template = op["path"]
-        path_params = op["path_params"]
-        query_params = op["query_params"]
-        body_params = op["body_params"]
-
-        # Build path interpolation
-        url_path = path_template
-        for param in path_params:
-            if param in arguments:
-                url_path = url_path.replace(f"{{{param}}}", str(arguments[param]))
+    def prepare_request(self, tool_name: str, arguments: dict[str, Any]) -> Request:
+        if tool_name not in self.operations:
+            raise ValueError(f"unknown tool: {tool_name}")
+        op = self.operations[tool_name]
+        Draft202012Validator(op["schema"]).validate(arguments)
+        path, query, headers = op["path"], {}, {}
+        for key, location in op["parameters"].items():
+            if key not in arguments or arguments[key] is None:
+                continue
+            value = arguments[key]
+            if location == "path":
+                path = path.replace("{" + key + "}", quote(str(value), safe=""))
+            elif location == "query":
+                query[key] = str(value).lower() if isinstance(value, bool) else value
             else:
-                latency = (time.perf_counter() - t0) * 1000
-                return 400, json.dumps({"error": f"missing required path parameter: {param}"}), latency
+                headers[key] = str(value)
+        body = {k: arguments[k] for k in op["body_keys"] if k in arguments}
+        if op["body_schema"] is not None:
+            Draft202012Validator(op["body_schema"]).validate(body)
+        return Request(
+            method=op["method"],
+            path=path,
+            query=query,
+            headers=headers,
+            json_body=body if op["has_body"] else None,
+        )
 
-        # Build query params
-        params = {}
-        for param in query_params:
-            if param in arguments and arguments[param] is not None:
-                params[param] = arguments[param]
-
-        # Build JSON body
-        # If the endpoint takes a JSON body, collect arguments defined in body_params
-        # If body_params is empty but method in POST/PUT/PATCH and arguments exist (not in path/query), include them
-        body = None
-        if method in ("POST", "PUT", "PATCH"):
-            if body_params:
-                body = {k: arguments[k] for k in body_params if k in arguments}
-            else:
-                # Include anything not consumed by path/query
-                extra = {k: v for k, v in arguments.items() if k not in path_params and k not in query_params}
-                if extra:
-                    body = extra
-                else:
-                    body = {}
-
-        # Headers
-        headers: dict[str, str] = {}
+    def execute_request(
+        self, request: Request, auth_token: str = "", timeout: float = 10.0
+    ) -> tuple[int | None, str, float]:
+        headers = dict(request.headers)
         if auth_token:
             headers["Authorization"] = f"Bearer {auth_token}"
-
-        url = f"{self.base_url}{url_path}"
-
+        started = time.perf_counter()
         try:
-            r = requests.request(
-                method=method,
-                url=url,
-                params=params if params else None,
-                json=body if body is not None else None,
+            response = requests.request(
+                request.method,
+                f"{self.base_url}{request.path}",
+                params=request.query,
+                json=request.json_body,
                 headers=headers,
                 timeout=timeout,
+                allow_redirects=False,
             )
-            latency = (time.perf_counter() - t0) * 1000
-            return r.status_code, r.text, latency
+            return response.status_code, response.text, (time.perf_counter() - started) * 1000
         except requests.RequestException as exc:
-            latency = (time.perf_counter() - t0) * 1000
-            return 503, json.dumps({"error": str(exc)}), latency
+            # No invented HTTP 503, and no credential-bearing request in the error.
+            return (
+                None,
+                json.dumps({"error": type(exc).__name__}),
+                (time.perf_counter() - started) * 1000,
+            )
 
+    def execute_tool(
+        self, tool_name: str, arguments: dict[str, Any], auth_token: str = "", timeout: float = 10.0
+    ) -> tuple[int | None, str, float]:
+        request = self.prepare_request(tool_name, arguments)
+        return self.execute_request(request, auth_token, timeout)

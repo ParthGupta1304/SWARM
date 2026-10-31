@@ -18,7 +18,6 @@ Usage:
 
 import copy
 import json
-import os
 import sys
 import uuid
 from pathlib import Path
@@ -126,7 +125,10 @@ def run_openapi_agent():
         adapter=adapter,
     )
 
-    result = agent.run(max_steps=12, max_tokens=20000)
+    try:
+        result = agent.run(max_steps=12, max_tokens=20000)
+    finally:
+        agent.close()
 
     print("\n" + "=" * 60)
     print("  Agent Summary")
@@ -148,6 +150,7 @@ if __name__ == "__main__":
 
     # Check if mock server is up
     import requests
+
     server_online = False
     try:
         r = requests.get("http://localhost:8001/health", timeout=2)

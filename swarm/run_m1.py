@@ -13,10 +13,9 @@ Usage:
   python -m swarm.run_m1
 """
 
-import uuid
-import sys
-import os
 import json
+import sys
+import uuid
 from pathlib import Path
 
 # Make sure repo root is on the path when running as a script.
@@ -30,7 +29,7 @@ SEED = 1
 APP_BASE_URL = "http://localhost:8001"
 PROVIDER_BASE_URL = "http://localhost:11434/v1"
 MODEL = "qwen2.5-coder:7b"
-MAX_STEPS = 15      # short cap for M1 testing
+MAX_STEPS = 15  # short cap for M1 testing
 MAX_TOKENS = 20000
 
 
@@ -38,7 +37,7 @@ def main():
     print(f"\nSwarmtest M1 — run_id={RUN_ID}  seed={SEED}")
     print(f"App:      {APP_BASE_URL}")
     print(f"Provider: {PROVIDER_BASE_URL}  model={MODEL}")
-    print(f"Events:   swarmtest_events.jsonl\n")
+    print("Events:   swarmtest_events.jsonl\n")
 
     agent = AgentLoop(
         agent_id=f"agent-{SEED}-casual-0",
@@ -56,23 +55,26 @@ def main():
         seed=SEED,
     )
 
-    result = agent.run(max_steps=MAX_STEPS, max_tokens=MAX_TOKENS)
+    try:
+        result = agent.run(max_steps=MAX_STEPS, max_tokens=MAX_TOKENS)
+    finally:
+        agent.close()
 
     # ── Print final report ────────────────────────────────────────────────────
-    print(f"\n{'='*54}")
-    print(f"  M1 Run Complete")
-    print(f"{'='*54}")
+    print(f"\n{'=' * 54}")
+    print("  M1 Run Complete")
+    print(f"{'=' * 54}")
     print(f"  Score            : {result.get('score', 0)}/1")
     print(f"  Steps taken      : {result.get('steps', 0)}")
     print(f"  Tokens used      : {result.get('tokens_used', 0)}")
     print(f"  Invalid tool rate: {result.get('invalid_rate', 0):.1%}")
     print(f"  Used JSON fallback: {result.get('used_json_fallback', False)}")
-    print(f"{'='*54}")
+    print(f"{'=' * 54}")
 
     # ── Verify events file ────────────────────────────────────────────────────
     events_file = Path("swarmtest_events.jsonl")
     if events_file.exists():
-        events = [json.loads(l) for l in events_file.read_text().splitlines() if l.strip()]
+        events = [json.loads(line) for line in events_file.read_text().splitlines() if line.strip()]
         run_events = [e for e in events if e.get("run_id") == RUN_ID]
         print(f"\n  Events logged for this run: {len(run_events)}")
         print(f"  Tools called: {[e['tool'] for e in run_events]}")
@@ -88,4 +90,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

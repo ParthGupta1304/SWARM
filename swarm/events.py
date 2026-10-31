@@ -1,24 +1,110 @@
-"""
-events.py — Minimal event logger for Swarmtest.
+"""Run-scoped sequencing and Dev3 event persistence shared by every actor."""
 
-Appends one JSON line per agent action to swarmtest_events.jsonl.
-All field names match the PRD Appendix B 'Event' schema so Dev 3 can
-drop in the real event store without changing callers.
+from __future__ import annotations
 
-Swap guide: replace the body of log_event() with a call to Dev 3's
-EventStore.append() — the signature stays the same.
-"""
-
-import json
 import hashlib
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any
-
-# Written to the current working directory. Override by setting
-# SWARMTEST_EVENTS_FILE before importing this module.
 import os
-_EVENTS_FILE = Path(os.environ.get("SWARMTEST_EVENTS_FILE", "swarmtest_events.jsonl"))
+from dataclasses import dataclass
+from pathlib import Path
+from threading import RLock
+
+from detect.contracts import Event, Request
+from detect.store import EventStore, SQLiteEventStore
+
+
+@dataclass(frozen=True)
+class EventSlot:
+    sequence: int
+    round: int
+    agent_id: str
+    concurrency_group: str | None
+
+
+class RunEvents:
+    """One instance per run; reserve the whole burst before dispatching actions."""
+
+    def __init__(
+        self, store: EventStore, run_id: str, seed: int, jsonl_path: str | Path | None = None
+    ):
+        self.store, self.run_id, self.seed = store, run_id, seed
+        self.jsonl_path = Path(jsonl_path) if jsonl_path is not None else None
+        self._lock = RLock()
+        existing = store.events(run_id)
+        if any(event.seed != seed for event in existing):
+            raise ValueError("cannot resume a run with a different seed")
+        self._next = max((e.sequence for e in existing), default=-1) + 1
+
+    def reserve(
+        self, round_num: int, agent_ids: list[str], *, concurrent: bool = False
+    ) -> list[EventSlot]:
+        if len(set(agent_ids)) != len(agent_ids):
+            raise ValueError("a burst requires distinct actors")
+        with self._lock:
+            group = (
+                f"{self.run_id}:burst:{self._next}" if concurrent and len(agent_ids) > 1 else None
+            )
+            slots = [
+                EventSlot(self._next + i, round_num, actor, group)
+                for i, actor in enumerate(agent_ids)
+            ]
+            self._next += len(slots)
+            return slots
+
+    def record(
+        self,
+        slot: EventSlot,
+        *,
+        role: str,
+        tool: str,
+        request: Request,
+        response_status: int | None,
+        response_body: str,
+        latency_ms: float,
+        tokens_used: int,
+        error: str | None = None,
+    ) -> Event:
+        event = Event(
+            run_id=self.run_id,
+            seed=self.seed,
+            round=slot.round,
+            sequence=slot.sequence,
+            agent_id=slot.agent_id,
+            role=role,
+            tool=tool,
+            request=request,
+            response_status=response_status,
+            response_body_hash=hashlib.sha256(response_body.encode()).hexdigest(),
+            latency_ms=latency_ms,
+            tokens_used=tokens_used,
+            concurrency_group=slot.concurrency_group,
+            error=error,
+        )
+        with self._lock:
+            self.store.append(event)
+            if self.jsonl_path is not None:
+                self.jsonl_path.parent.mkdir(parents=True, exist_ok=True)
+                with self.jsonl_path.open("a", encoding="utf-8") as output:
+                    output.write(event.model_dump_json() + "\n")
+        return event
+
+
+_DEFAULTS: dict[str, RunEvents] = {}
+_DEFAULT_LOCK = RLock()
+
+
+def default_events(run_id: str, seed: int) -> RunEvents:
+    with _DEFAULT_LOCK:
+        if run_id not in _DEFAULTS:
+            _DEFAULTS[run_id] = RunEvents(
+                SQLiteEventStore(os.environ.get("SWARMTEST_EVENTS_DB", "swarmtest_events.sqlite3")),
+                run_id,
+                seed,
+                os.environ.get("SWARMTEST_EVENTS_FILE", "swarmtest_events.jsonl"),
+            )
+        events = _DEFAULTS[run_id]
+        if events.seed != seed:
+            raise ValueError("run seed changed")
+        return events
 
 
 def log_event(
@@ -28,43 +114,24 @@ def log_event(
     agent_id: str,
     role: str,
     tool: str,
-    request: dict[str, Any],
-    response_status: int,
+    request: Request | dict,
+    response_status: int | None,
     response_body: str,
     latency_ms: float,
     tokens_used: int,
 ) -> dict:
-    """
-    Log one agent action. Returns the event dict (useful for unit tests).
-
-    Fields:
-      run_id            — unique id for this swarm run
-      seed              — RNG seed used for this run
-      round_num         — agent step index (0-based)
-      agent_id          — unique string id for the agent instance
-      role              — persona role name (e.g. 'casual_buyer')
-      tool              — tool name called (e.g. 'checkout')
-      request           — arguments passed to the tool
-      response_status   — HTTP status code returned by the app
-      response_body     — raw response text (hashed for storage)
-      latency_ms        — round-trip time in milliseconds
-      tokens_used       — tokens consumed by this LLM call
-    """
-    event = {
-        "run_id": run_id,
-        "seed": seed,
-        "round": round_num,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "agent_id": agent_id,
-        "role": role,
-        "tool": tool,
-        "request": request,
-        "response_status": response_status,
-        "response_body_hash": hashlib.sha256(response_body.encode()).hexdigest()[:16],
-        "latency_ms": round(latency_ms, 2),
-        "tokens_used": tokens_used,
-    }
-    with _EVENTS_FILE.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(event) + "\n")
-    return event
-
+    """Serial compatibility entry point; request must be a Dev3 Request, not tool args."""
+    request = request if isinstance(request, Request) else Request.model_validate(request)
+    recorder = default_events(run_id, seed)
+    slot = recorder.reserve(round_num, [agent_id])[0]
+    return recorder.record(
+        slot,
+        role=role,
+        tool=tool,
+        request=request,
+        response_status=response_status,
+        response_body=response_body,
+        latency_ms=latency_ms,
+        tokens_used=tokens_used,
+        error="transport failure" if response_status is None else None,
+    ).model_dump(mode="json")

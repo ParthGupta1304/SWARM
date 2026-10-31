@@ -6,9 +6,6 @@ The execute_tool() function is also replaced by the OpenAPI-driven adapter.
 Both are kept behind the same interface so agent.py does not change.
 """
 
-import json
-import time
-import requests
 from typing import Any
 
 # ── Tool definitions (OpenAI function-calling schema) ─────────────────────────
@@ -84,39 +81,13 @@ def execute_tool(
     arguments: dict[str, Any],
     auth_token: str,
     base_url: str,
-) -> tuple[int, str, float]:
-    """
-    Execute a tool against the target app over HTTP.
-    Returns (http_status_code, response_body_text, latency_ms).
+) -> tuple[int | None, str, float]:
+    """Legacy M1 entry point delegated to the canonical OpenAPI executor."""
+    from pathlib import Path
 
-    In M2 this is replaced by the OpenAPI-generated adapter.
-    """
-    headers: dict[str, str] = {}
-    if auth_token:
-        headers["Authorization"] = f"Bearer {auth_token}"
+    from adapters.openapi import OpenAPIAdapter
 
-    t0 = time.perf_counter()
-    try:
-        if tool_name == "list_items":
-            params = {}
-            if arguments.get("search"):
-                params["search"] = arguments["search"]
-            r = requests.get(f"{base_url}/items", params=params, headers=headers, timeout=10)
-
-        elif tool_name == "add_to_cart":
-            r = requests.post(f"{base_url}/cart/add", json=arguments, headers=headers, timeout=10)
-
-        elif tool_name == "checkout":
-            r = requests.post(f"{base_url}/checkout", json={}, headers=headers, timeout=10)
-
-        else:
-            latency = (time.perf_counter() - t0) * 1000
-            return 400, json.dumps({"error": f"unknown tool: {tool_name}"}), latency
-
-        latency = (time.perf_counter() - t0) * 1000
-        return r.status_code, r.text, latency
-
-    except requests.RequestException as exc:
-        latency = (time.perf_counter() - t0) * 1000
-        return 503, json.dumps({"error": str(exc)}), latency
-
+    if tool_name not in TOOL_NAMES:
+        raise ValueError(f"unknown M1 tool: {tool_name}")
+    adapter = OpenAPIAdapter(Path(__file__).parent.parent / "openapi.json", base_url)
+    return adapter.execute_tool(tool_name, arguments, auth_token)

@@ -192,12 +192,21 @@ The local history/recheck API is an extension and is not required of that adapte
 Raw event and replay evidence remain in our own database. Meko downtime must not
 prevent Phase 1 from running.
 
-## Pending teammate integration
+## Dev2 integration update — 2026-10-31
+
+The implemented runtime now emits these v1 Events and consumes the replay and
+benchmark APIs without contract changes. See `docs/dev2-integration.md` for
+`RunEvents`, `RunCoordinator`, `DetectionPipeline`, the CLI and actual direct
+check evidence. The teammate mock and controlled race fixtures have been
+checked; real Bazaar and live-model results remain pending.
+
+## Pending real-target integration
 
 1. Dev1 supplies the real Bazaar OpenAPI spec, SQL invariants, ground-truth bug
    manifest and seeded reset callback on a separate verifier target.
-2. Dev2 emits events with unique sequences and contiguous concurrent groups,
-   supplies actor credentials and implements the benchmark callback.
+2. Bind the completed Dev2 runtime, event emitter and benchmark callback to
+   Dev1's real fixtures and per-actor verifier credentials; confirm the real
+   authentication convention and exercise all six roles with the live model.
 3. Jointly confirm the v1 schemas and statuses accepted after fixes. Coordinate
    root packaging/lockfile changes through one integrator.
 4. Run the real two-condition, three-seed benchmark and core gate of three
