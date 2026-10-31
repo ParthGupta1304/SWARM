@@ -82,7 +82,10 @@ def create_app(config, environment, output: Path, results: Path | None = None):
 
     @app.get("/")
     def index():
-        return FileResponse(STATIC / "index.html")
+        page = (
+            STATIC / "console.html" if (STATIC / "console.html").exists() else STATIC / "index.html"
+        )
+        return FileResponse(page)
 
     def busy():
         return state["task"] is not None and not state["task"].done()

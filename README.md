@@ -64,6 +64,14 @@ make frontend
 make check
 ```
 
+The teammate React dashboard source is also preserved in `dashboard/`. The
+Python launcher serves the full run console from `dashboard/console.html`.
+To develop the separate read-only React viewer, run `npm ci --prefix dashboard`
+and `npm run dev --prefix dashboard -- --host 127.0.0.1`; it connects to a
+standalone Bazaar API at `http://localhost:8000` by default. Override
+`VITE_BAZAAR_API_URL` when using another API address.
+
+
 | Owner | Modules |
 | --- | --- |
 | Dev1 | `apps/bazaar/`, `dashboard/`, fixtures, OpenAPI and demo |

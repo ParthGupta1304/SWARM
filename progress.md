@@ -29,8 +29,9 @@ from 20 to **10 agents** and replacing local Qwen with **Groq** from local `.env
   5,361 tokens (~$0.00117). Results: `docs/results/phase1-groq-summary.json`.
 - Marketplace browser purchase/coupon/checkout/fulfilment passed. The locked environment and wheel/sdist build pass with storefront assets
   included and credentials/node_modules excluded. The two-minute captured-state fallback is in `docs/demo/phase1-fallback.mp4`;
-  source labels distinguish manual, scripted and real Groq sections. Final
-  publication is the remaining delivery step. Further edge-case work is deferred
+  source labels distinguish manual, scripted and real Groq sections. The latest teammate React dashboard is merged alongside the full run console;
+  its event and finding field mappings are compatible with the canonical API.
+  Final publication follows the merged checks. Further edge-case work is deferred
   per owner request.
 - Docker daemon unavailable; native execution is the verified path. No Meko
   handoff export was performed. See `docs/phase1.md` for current instructions.
@@ -41,7 +42,7 @@ from 20 to **10 agents** and replacing local Qwen with **Groq** from local `.env
 
 Updated: 2026-10-31 (Asia/Kolkata)
 
-## Phase 1 completion work — current
+## Earlier Phase 1 completion work — historical
 
 - Branch: `codex/phase1-completion`, starting from Dev1 `75a312d`.
 - Status: implementation integrated and directly checked; **Phase 1 acceptance
