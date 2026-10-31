@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "meko": {
+      "command": "npx",
+      "args": [
+        "@yugabytedb/meko-mcp",
+        "--client", "Antigravity",
+        "--url", "https://mcp.mekodata.ai/mcp",
+        "--api-key", "mko_tkn_2y6kbkjq3toym6jfripitniqm3m4wi3ikxfc6by"
+      ]
+    }
+  }
+}
+
