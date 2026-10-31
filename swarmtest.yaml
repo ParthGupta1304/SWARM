@@ -5,7 +5,7 @@ provider_base_url: https://api.groq.com/openai/v1
 model: openai/gpt-oss-120b
 api_key_env: GROQ_API_KEY
 seed: 1
-max_rounds: 8
+max_rounds: 6
 token_budget: 100000
 input_cost_per_million: 0.15
 output_cost_per_million: 0.6

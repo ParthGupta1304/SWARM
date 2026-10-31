@@ -17,7 +17,7 @@ function render(data){
  $('start').disabled=data.busy;$('stop').disabled=!data.busy;
  $('error').hidden=!data.error;if(data.error)$('error').textContent=data.error;
  const runs=data.runs||[];const run=runs.find(r=>r.status==='running')||runs.at(-1);
- $('model').textContent=data.model;$('tokens').textContent=Number(run?.tokens_used||0).toLocaleString();
+ $('model').textContent=data.model+(data.max_rounds?' · up to '+data.max_rounds+' rounds':'');$('tokens').textContent=Number(run?.tokens_used||0).toLocaleString();
  $('budget').max=run?.token_budget||data.token_budget||1;$('budget').value=run?.tokens_used||0;
  $('cap').textContent='of '+Number(run?.token_budget||data.token_budget).toLocaleString()+' tokens';
  const efficiency=run?.efficiency; $('efficiency').textContent=efficiency ? `${efficiency.model_calls} model calls · ${efficiency.prompt_tokens} input / ${efficiency.completion_tokens} output tokens · ${efficiency.cached_prompt_tokens} cached (${efficiency.cache_reporting}) · ${efficiency.compactions} context compactions · ${efficiency.repeat_redirections} repeat hints · ${Number(efficiency.pacing_wait_s||0).toFixed(1)}s pacing wait` : 'Cache usage was not recorded for this run.';

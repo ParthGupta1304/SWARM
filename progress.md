@@ -1,3 +1,18 @@
+# Run length update — 2026-11-01
+
+- Owner requested six rounds. Regular dashboard and config-only CLI runs now
+  use `max_rounds: 6`; the three-round-per-condition benchmark stays unchanged.
+- Latest completed real Groq run `74825234-0830-4b36-9b4e-56fd28bfa737`
+  used the prior eight-round limit and verified E2, E7 and S2. It executed 55
+  actions from 74 model decisions; 19 decisions were invalid. Four actors hit
+  the three-consecutive-invalid-decision cutoff. This limits exploration and
+  needs attention before attributing lower recall solely to chance or savings.
+- This update does not change validation or suppression policies. No new paid
+  run is needed to apply the round limit. Historical eight-round measurements
+  remain labelled as such.
+
+---
+
 # AI efficiency — latest implementation
 
 Updated: 2026-11-01. The owner approved the written efficiency specification.

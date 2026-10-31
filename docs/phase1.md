@@ -88,7 +88,7 @@ budgets and the owned Bazaar target. No Python hook factory is needed for this
 built-in target. Custom external targets must explicitly supply disposable
 reset/detection hooks; the CLI refuses to silently omit detection.
 
-Interactive runs allow eight rounds. The bounded benchmark config allows
+Interactive runs allow six rounds. The bounded benchmark config allows
 three rounds per actor for **both** conditions and uses equal 100,000-token
 caps and the same model. This short-horizon experiment fits provider quotas;
 it is not a claim of exhaustive exploration or complete recall. Isolated mode

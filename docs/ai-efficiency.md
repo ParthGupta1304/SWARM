@@ -2,7 +2,7 @@
 
 The runtime now sends bounded local context, preserves cacheable prompt prefixes,
 and reports confirmed cache usage. The provider remains Groq GPT-OSS 120B with
-10 actors, eight interactive rounds and three rounds in each benchmark condition.
+10 actors, six interactive rounds and three rounds in each benchmark condition.
 Miko/Meko integration and multiple-model routing are not part of this change.
 
 ## Context and memory

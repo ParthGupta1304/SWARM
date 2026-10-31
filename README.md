@@ -33,7 +33,7 @@ uv run --no-sync swarmtest benchmark --config configs/bazaar-benchmark.yaml --ou
 uv run --no-sync python -m swarm.demo --port 8082 --results artifacts/groq-phase1
 ```
 
-Interactive runs allow eight rounds; the quota-bounded comparison uses three
+Interactive runs allow six rounds; the quota-bounded comparison uses three
 rounds in both conditions and three held-out seeds. Token/dollar caps, shared
 provider pacing and a cooperative stop apply. Findings include reduced causal
 reproductions and independent verification attempts. Human review is an

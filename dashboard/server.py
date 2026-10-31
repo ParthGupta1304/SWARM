@@ -295,6 +295,7 @@ def create_app(config, environment, output: Path, results: Path | None = None):
             "gate": state["gate"],
             "model": config.model,
             "token_budget": config.token_budget,
+            "max_rounds": config.max_rounds,
         }
 
     @app.get("/api/stream")
