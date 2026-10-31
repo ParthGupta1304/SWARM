@@ -17,3 +17,6 @@ artifacts/
 *.sqlite3-shm
 *.sqlite3-wal
 swarmtest_events.jsonl
+
+# Frontend dependencies; compiled demo assets are committed.
+node_modules/

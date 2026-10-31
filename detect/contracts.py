@@ -69,6 +69,7 @@ class Event(Contract):
     request: Request
     response_status: int | None = Field(default=None, ge=100, le=599)
     response_body_hash: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+    response_json: JsonValue = None
     db_changes: list[dict[str, JsonValue]] = Field(default_factory=list)
     latency_ms: float = Field(default=0, ge=0)
     tokens_used: int = Field(default=0, ge=0)
@@ -89,6 +90,8 @@ class ReplayAction(Contract):
     request: Request
     expected_status: int | None = Field(default=None, ge=100, le=599)
     acceptable_statuses: list[Annotated[int, Field(ge=100, le=599)]] = Field(default_factory=list)
+    # Request locations (json_body.order_id, query.item_id, path.3) -> prior response.
+    bindings: dict[str, dict[str, str]] = Field(default_factory=dict)
 
 
 class ReplayStep(Contract):
@@ -130,6 +133,10 @@ class Finding(Contract):
     mapped_bug_id: Nonempty | None = None
     suggested_fix: str | None = None
     evidence: list[dict[str, JsonValue]] = Field(default_factory=list)
+    verification: dict[str, JsonValue] = Field(default_factory=dict)
+    causality: Literal["unassessed", "single-user", "interaction-required", "inconclusive"] = (
+        "unassessed"
+    )
 
     @model_validator(mode="after")
     def consistent_evidence(self) -> Finding:

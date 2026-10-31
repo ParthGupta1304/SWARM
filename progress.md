@@ -1,3 +1,42 @@
+# Phase 1 PRD completion — latest pass
+
+Updated: 2026-10-31. User approved the written addendum, changing the population
+from 20 to **10 agents** and replacing local Qwen with **Groq** from local `.env`.
+
+- Implemented: React/Vite Bazaar storefront at `/bazaar/`; missing marketplace
+  operations; ten sessions/six roles; measured objective scores; shared account
+  observations; token/dollar caps and provider pacing; same-operation bursts;
+  config-only CLI with owned targets/fixture/SQL binding; checkpointed benchmark
+  resume; individual-action/actor replay reduction, causal checks and response-ID
+  rebinding; full verification evidence; SSE, activity graph and human review UI;
+  saved-result inspection and an explicitly labelled offline scripted fallback.
+- E5 now requires a purchase, separate seller fulfilment and buyer review. E7
+  records whether the sender was blocked at submission, eliminating false
+  timestamp-ordering matches. The frozen catalog has 3 single-user/5 emergent IDs.
+- Direct checks: all eight cases pass SQLite/Postgres; fixed race paths pass;
+  six scripted benchmark runs pass with correct one-actor versus two-actor
+  attribution. Dollar/usage/cancellation/ID-binding/review-hash checks pass.
+- Real Groq: connection/tool preflight passed; a development run found E1/E7.
+  An early held-out comparison was stopped for an oracle correction; a later
+  comparison completed one baseline then failed on Groq HTTP400 without usage.
+  These are retained as partial evidence, never scored as complete benchmarks.
+- Groq compatibility now uses documented provider validation settings while
+  retaining strict local tool/argument validation. A token bucket refunds known
+  unused reservations. The six-run, three-round Groq comparison completed. E1/E2/E7 were independently
+  replay-verified; the judge assessed every candidate, and the owner explicitly
+  accepted the E7 moderation-bypass spot-check. **The approved core gate passed.**
+  Completed exploration used 109,096 tokens (~$0.02017 estimated); judging used
+  5,361 tokens (~$0.00117). Results: `docs/results/phase1-groq-summary.json`.
+- Marketplace browser purchase/coupon/checkout/fulfilment passed. The locked environment and wheel/sdist build pass with storefront assets
+  included and credentials/node_modules excluded. The two-minute captured-state fallback is in `docs/demo/phase1-fallback.mp4`;
+  source labels distinguish manual, scripted and real Groq sections. Final
+  publication is the remaining delivery step. Further edge-case work is deferred
+  per owner request.
+- Docker daemon unavailable; native execution is the verified path. No Meko
+  handoff export was performed. See `docs/phase1.md` for current instructions.
+
+---
+
 # SWARM progress
 
 Updated: 2026-10-31 (Asia/Kolkata)

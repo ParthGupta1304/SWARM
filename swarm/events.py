@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -63,6 +64,10 @@ class RunEvents:
         tokens_used: int,
         error: str | None = None,
     ) -> Event:
+        try:
+            response_json = json.loads(response_body) if len(response_body) <= 16000 else None
+        except ValueError:
+            response_json = None
         event = Event(
             run_id=self.run_id,
             seed=self.seed,
@@ -74,6 +79,7 @@ class RunEvents:
             request=request,
             response_status=response_status,
             response_body_hash=hashlib.sha256(response_body.encode()).hexdigest(),
+            response_json=response_json,
             latency_ms=latency_ms,
             tokens_used=tokens_used,
             concurrency_group=slot.concurrency_group,

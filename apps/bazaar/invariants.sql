@@ -25,14 +25,18 @@ FROM reviews
 JOIN items ON items.id = reviews.item_id
 JOIN users AS author ON author.id = reviews.author_id
 JOIN users AS seller ON seller.id = items.seller_id
-WHERE author.owner_key = seller.owner_key;
+WHERE author.owner_key = seller.owner_key
+AND author.id != seller.id
+AND EXISTS (SELECT 1 FROM orders JOIN order_lines ON orders.id = order_lines.order_id
+            WHERE orders.buyer_id = author.id AND orders.status = 'fulfilled'
+            AND order_lines.item_id = reviews.item_id);
 
 -- invariant: E7 | high | A blocked buyer contacted the seller by an item question
 SELECT 'E7' AS bug_id, item_questions.id AS question_id, item_questions.item_id, item_questions.author_id
 FROM item_questions
 JOIN items ON items.id = item_questions.item_id
 JOIN blocks ON blocks.blocker_id = items.seller_id AND blocks.blocked_id = item_questions.author_id
-WHERE item_questions.created_at >= blocks.created_at;
+WHERE item_questions.blocked_at_send = TRUE;
 
 -- invariant: S2 | medium | No cart may contain a zero or negative line quantity
 SELECT 'S2' AS bug_id, id AS cart_item_id, user_id, item_id, quantity

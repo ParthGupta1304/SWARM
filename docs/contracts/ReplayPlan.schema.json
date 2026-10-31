@@ -18,6 +18,16 @@
           "title": "Agent Id",
           "type": "string"
         },
+        "bindings": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "title": "Bindings",
+          "type": "object"
+        },
         "event_id": {
           "minLength": 1,
           "title": "Event Id",

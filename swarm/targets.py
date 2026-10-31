@@ -25,6 +25,7 @@ class BazaarTarget:
         version: str = "v1",
         database_url: str | None = None,
         bug_overrides: dict | None = None,
+        seed_fixture: str | None = None,
     ):
         from apps.bazaar.bazaar.seed import seed_database
 
@@ -32,6 +33,7 @@ class BazaarTarget:
         self.directory.mkdir(parents=True, exist_ok=True)
         self.database_url = database_url or f"sqlite:///{self.directory / 'target.sqlite3'}"
         self._seed = seed_database
+        self.seed_fixture = seed_fixture
         self.version = version
         self.bug_overrides = bug_overrides or {}
         self.process = None
@@ -42,7 +44,7 @@ class BazaarTarget:
 
     def reset(self, seed: int) -> None:
         # Only a target object explicitly constructed by the launcher can reset.
-        self._seed(self.database_url, seed)
+        self._seed(self.database_url, seed, self.seed_fixture)
         if self.engine.dialect.name == "sqlite":
             with self.engine.connect() as db:
                 db.exec_driver_sql("PRAGMA journal_mode=WAL")
@@ -113,12 +115,22 @@ class BazaarTarget:
 
 
 class BazaarEnvironment:
-    def __init__(self, directory: str | Path = "artifacts/phase1", *, version: str = "v1"):
+    def __init__(
+        self,
+        directory: str | Path = "artifacts/phase1",
+        *,
+        version: str = "v1",
+        seed_fixture: str | None = None,
+    ):
         base = Path(directory).resolve()
         base.mkdir(parents=True, exist_ok=True)
         self.directory = Path(tempfile.mkdtemp(prefix="targets-", dir=base))
-        self.live = BazaarTarget(self.directory / "live", version=version)
-        self.replay = BazaarTarget(self.directory / "replay", version=version)
+        self.live = BazaarTarget(
+            self.directory / "live", version=version, seed_fixture=seed_fixture
+        )
+        self.replay = BazaarTarget(
+            self.directory / "replay", version=version, seed_fixture=seed_fixture
+        )
 
     def __enter__(self):
         try:

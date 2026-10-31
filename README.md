@@ -1,79 +1,80 @@
 # Swarmtest
 
-Multi-agent testing for failures caused by interacting users. The runtime now
-connects OpenAPI-driven actors to Dev3 event logging, detection, independent
-replay, reports, benchmark utilities and local memory. A mock Bazaar supports
-direct checks; real Bazaar and the dashboard remain Dev1 deliverables.
+A community of normal users and adversaries tests a real marketplace, then
+replays observed failures on an independent database. The Phase 1 build includes
+the Bazaar storefront, ten configurable agents, detection/replay, a live console
+and the isolated-versus-swarm benchmark. Product Meko memory is Phase 2.
 
-## Phase 1 console
-
-The real Bazaar app, runtime, independent replay target and local dashboard
-are integrated on `codex/phase1-completion`. Run:
+## Start
 
 ```sh
 uv sync --locked --extra postgres --extra charts
+# Configure GROQ_API_KEY in ignored .env; see .env.example.
 uv run --no-sync python -m swarm.demo
 ```
 
-Open [the local console](http://127.0.0.1:8080). Configure the model provider in
-ignored `.env` using `.env.example`; do not commit or share its API key.
-See [Phase 1 setup and acceptance](docs/phase1.md) for the six-role/eight-session
-configuration, frozen bug semantics, provider setup, benchmark and gate.
-Direct/scripted checks passed; real-model acceptance remains pending until
-provider configuration and the measured AI runs are complete.
+Open [Bazaar](http://127.0.0.1:8080/bazaar/) to browse and shop, or the
+[Swarmtest console](http://127.0.0.1:8080/) to run agents and inspect findings.
+The React storefront uses the same live Bazaar instance as the agents.
+The launcher owns separate live/replay targets and stops them on exit.
+
+The project owner approved **10 agents and Groq `openai/gpt-oss-120b`**, replacing
+the PRD's 20-agent minimum and earlier local-Qwen setup. The API key remains server-side and is
+never committed or sent to the browser. Keep `.env` local.
+
+## Run or compare
+
+```sh
+uv run --no-sync swarmtest run --config swarmtest.yaml
+uv run --no-sync swarmtest benchmark --config configs/bazaar-benchmark.yaml --output artifacts/groq-phase1
+# Resume only an identical experiment after a transient interruption:
+uv run --no-sync swarmtest benchmark --config configs/bazaar-benchmark.yaml --output artifacts/groq-phase1 --resume
+# Review saved comparison/evidence without running the model again:
+uv run --no-sync python -m swarm.demo --port 8082 --results artifacts/groq-phase1
+```
+
+Interactive runs allow eight rounds; the quota-bounded comparison uses three
+rounds in both conditions and three held-out seeds. Token/dollar caps, shared
+provider pacing and a cooperative stop apply. Findings include reduced causal
+reproductions and independent verification attempts. Human review is an
+explicit acceptance step, not an automatically completed checkbox.
+
+For an offline rehearsal, with clear scripted-fixture labels:
+
+```sh
+uv run --no-sync python -m swarm.demo --scripted --port 8081
+```
+
+The [two-minute fallback](docs/demo/phase1-fallback.mp4) combines captured UI states
+with explicit manual/scripted/real-Groq labels.
+
+See [setup, budgets, bug semantics and acceptance](docs/phase1.md),
+[demo script](docs/demo-script.md), and [current progress](progress.md).
+Direct/scripted checks establish software behavior; real AI results and human
+review must establish the benchmark gate. No detection-rate claim should be
+inferred from a scripted rehearsal.
 
 ## Development
 
-Python 3.11 or later and [uv](https://docs.astral.sh/uv/) are required.
+Python 3.11+ and uv are required. Compiled storefront assets are included;
+Node is needed only when editing them:
 
 ```sh
-uv sync --locked --no-dev
-uv run --no-sync python -m detect.schemas
-uv run --no-sync python -m compileall -q detect verify bench memory
+make frontend
+make check
 ```
 
-Install the optional `postgres` extra for Postgres storage and the `charts`
-extra for matplotlib charts. No model API key is required for Dev3's pipeline.
-Per the project owner's workflow, delivery uses direct feature smoke checks
-rather than a written test suite. Actual checks and their results are recorded
-in [progress.md](progress.md).
-
-See [runtime setup and Dev2/Dev3 integration](docs/dev2-integration.md) for
-configuration, concurrent/isolated execution, budgets and benchmark hooks.
-Run `uv run --no-sync python -m swarm --help` for the CLI.
-
-See [Dev3 integration and handoff](docs/dev3-integration.md) for public contracts,
-ownership, runtime integration, reset requirements and pending work. Exported
-JSON Schemas are under `docs/contracts/`.
-
-If a teammate cannot use Meko, follow the
-[shared context fallback](docs/team-context.md) and maintain a developer-owned
-handoff such as [Dev2's handoff](docs/handoffs/dev2.md). Code and committed
-context can be shared through GitHub while MCP is unavailable.
-
-## Ownership
-
-| Owner | Modules and handoffs |
+| Owner | Modules |
 | --- | --- |
-| Dev1 | `apps/bazaar/`, `dashboard/`, OpenAPI spec, seed fixtures, invariant SQL and reset fixture |
-| Dev2 | `swarm/`, `adapters/`, CLI/config, orchestration, barriers, budgets and the later Meko adapter |
-| Dev3 | `detect/`, `verify/`, `bench/`, `memory/` and their interface docs |
+| Dev1 | `apps/bazaar/`, `dashboard/`, fixtures, OpenAPI and demo |
+| Dev2 | `swarm/`, `adapters/`, CLI/config, scheduling and budgets |
+| Dev3 | `detect/`, `verify/`, `bench/`, `memory/` and contracts |
 
-Root packaging and dependency lock were bootstrapped by Dev3 while the repo
-was empty. Coordinate changes to those shared files instead of independently
-replacing them. Python contracts in `detect/contracts.py` are authoritative for
-Dev3's v1 interface; affected owners review contract changes.
+The teams' contributions are integrated. Earlier development handoffs remain
+under `docs/`; current behavior is described in `docs/phase1.md`. Public wire
+schemas are in `docs/contracts/`. Coordinate shared packaging/lock changes.
 
-Search the shared Meko datapack before major tasks. Save decisions, bug fixes
-and handoffs with paths, branch and commit SHA. Keep secrets out of shared
-memory and Git. Verify retrieved context against the current repository code.
-
-## What is measured
-
-Direct smoke checks use a deliberately controlled two-user oversell fixture to
-verify the pipeline. Those results are **not** a Bazaar benchmark. Real benchmark
-results require Dev1's planted-bug manifest and Dev2's isolated/swarm runs.
-
-The event/replay store is separate from the target app's disposable database.
-Meko holds shared development context now; a product memory adapter can be
-added after the core demo works without changing the local MemoryStore API.
+Development handoffs stay in Git per the project owner's preference. The
+[team context fallback](docs/team-context.md) remains available. A connected
+Meko tool used for development notes is separate from the unimplemented Phase 2
+product adapter; no Meko sync is required to run Phase 1.

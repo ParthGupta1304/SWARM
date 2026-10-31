@@ -22,6 +22,7 @@ from memory.store import MemoryStore
 from swarm.agent import AgentLoop, Decision
 from swarm.budget import BudgetAccountingError, TokenBudget
 from swarm.events import EventSlot, RunEvents
+from swarm.provider import ProviderPacer
 
 
 class Persona(BaseModel):
@@ -41,6 +42,8 @@ class RunConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
     project: str = Field(default="bazaar", min_length=1)
     spec: str = "openapi.json"
+    seed_fixture: str | None = None
+    invariants: str | None = None
     app_base_url: str = "http://localhost:8001"
     provider_base_url: str = "http://localhost:11434/v1"
     model: str = "qwen2.5-coder:7b"
@@ -49,6 +52,13 @@ class RunConfig(BaseModel):
     max_rounds: int = Field(default=40, gt=0)
     token_budget: int = Field(default=60000, gt=0)
     kill_file: str | None = None
+    target: Literal["bazaar", "external"] = "bazaar"
+    bazaar_version: Literal["v1", "v2"] = "v1"
+    max_dollars: float = Field(default=1, ge=0)
+    requests_per_minute: float = Field(default=24, gt=0)
+    tokens_per_minute: int = Field(default=7000, gt=0)
+    model_concurrency: int = Field(default=2, gt=0)
+    burst_tool: str | None = None
     # Set both to zero only for a provider known to be free, e.g. local Ollama.
     input_cost_per_million: float = Field(ge=0)
     output_cost_per_million: float = Field(ge=0)
@@ -78,6 +88,7 @@ class RuntimeHooks:
     detect: Callable[[RoundWindow], Awaitable[list[Finding]]] | None = None
     close: Callable[[], Awaitable[None]] | None = None
     progress: Callable[[dict], Awaitable[None]] | None = None
+    score: Callable[[], Awaitable[dict]] | None = None
 
 
 @dataclass
@@ -94,12 +105,20 @@ class RunResult:
     findings: list[Finding] = field(default_factory=list)
     finding_times_s: dict[str, float] = field(default_factory=dict)
     stopped: bool = False
+    provenance: dict = field(default_factory=dict)
 
     def benchmark_run(self) -> BenchmarkRun:
         if self.stopped:
             raise ValueError("a killed run cannot be scored as a completed benchmark")
         return BenchmarkRun.model_validate(
-            {key: value for key, value in vars(self).items() if key not in {"agents", "stopped"}}
+            {
+                **{
+                    key: value
+                    for key, value in vars(self).items()
+                    if key not in {"agents", "stopped"}
+                },
+                "actor_count": len(self.agents),
+            }
         )
 
 
@@ -143,11 +162,23 @@ class RunCoordinator:
         events = await asyncio.to_thread(
             RunEvents, self.store, run_id, config.seed, self.jsonl_path
         )
-        budget = TokenBudget(config.token_budget)
+        budget = TokenBudget(
+            config.token_budget,
+            max_dollars=config.max_dollars,
+            input_price=config.input_cost_per_million,
+            output_price=config.output_cost_per_million,
+        )
+        pacer = ProviderPacer(config.requests_per_minute, config.tokens_per_minute)
+        model_slots = asyncio.Semaphore(config.model_concurrency)
         adapter = OpenAPIAdapter(config.spec, config.app_base_url)
         agents = []
+        pulse = None
+        meter_round = -1
 
-        async def publish(status: str, round_num: int = -1):
+        async def publish(status: str, round_num: int | None = None):
+            nonlocal meter_round
+            if round_num is not None:
+                meter_round = round_num
             if self.hooks.progress:
                 await self.hooks.progress(
                     {
@@ -155,7 +186,7 @@ class RunCoordinator:
                         "condition": condition,
                         "seed": config.seed,
                         "status": status,
-                        "round": round_num,
+                        "round": meter_round,
                         "tokens_used": budget.used,
                         "token_budget": budget.limit,
                         "cost_usd": (
@@ -190,6 +221,8 @@ class RunCoordinator:
                     fixed_arguments=persona.fixed_arguments,
                 )
                 agent.max_steps = persona.max_steps
+                agent.pacer = pacer
+                agent.cancelled = self.stopping
                 agents.append(agent)
                 if self.memory is not None:
                     saved = await asyncio.to_thread(
@@ -202,6 +235,13 @@ class RunCoordinator:
                             {"role": "user", "content": "Prior run memory: " + json.dumps(saved)}
                         ]
             await publish("running")
+
+            async def meter_updates():
+                while True:
+                    await asyncio.sleep(1)
+                    await publish("running")
+
+            pulse = asyncio.create_task(meter_updates())
             random.Random(config.seed).shuffle(agents)
             findings, times = [], {}
             batches = [agents] if condition == "swarm" else [[agent] for agent in agents]
@@ -226,8 +266,13 @@ class RunCoordinator:
                     ]
                     if not active:
                         break
+
+                    async def decide_one(agent):
+                        async with model_slots:
+                            return await asyncio.to_thread(agent.decide)
+
                     decisions = await asyncio.gather(
-                        *[asyncio.to_thread(agent.decide) for agent in active],
+                        *[decide_one(agent) for agent in active],
                         return_exceptions=True,
                     )
                     errors = [value for value in decisions if isinstance(value, BaseException)]
@@ -245,35 +290,57 @@ class RunCoordinator:
                         continue
                     if self.stopping():
                         break
-                    slots = events.reserve(
-                        round_num,
-                        [agent.agent_id for agent, _ in ready],
-                        concurrent=condition == "swarm",
-                    )
-                    barrier = asyncio.Barrier(len(ready))
+                    burst = [
+                        (actor, decision)
+                        for actor, decision in ready
+                        if decision.tool == config.burst_tool
+                    ]
+                    remaining = [
+                        (actor, decision)
+                        for actor, decision in ready
+                        if decision.tool != config.burst_tool
+                    ]
+                    cohorts = [burst, remaining] if len(burst) > 1 else [ready]
+                    outcomes = []
+                    for cohort in cohorts:
+                        if not cohort:
+                            continue
+                        slots = events.reserve(
+                            round_num,
+                            [a.agent_id for a, _ in cohort],
+                            concurrent=condition == "swarm",
+                        )
+                        barrier = asyncio.Barrier(len(cohort))
 
-                    async def execute(
-                        actor: AgentLoop,
-                        decision: Decision,
-                        slot: EventSlot,
-                        gate: asyncio.Barrier = barrier,
-                    ):
-                        await gate.wait()
-                        return await asyncio.to_thread(actor.execute, decision, slot)
+                        async def execute(
+                            actor: AgentLoop, decision: Decision, slot: EventSlot, gate=barrier
+                        ):
+                            await gate.wait()
+                            return await asyncio.to_thread(actor.execute, decision, slot)
 
-                    # Await every write before detection or resetting the application.
-                    outcomes = await asyncio.gather(
-                        *[
-                            execute(agent, decision, slot)
-                            for (agent, decision), slot in zip(ready, slots, strict=True)
-                        ],
-                        return_exceptions=True,
-                    )
+                        outcomes.extend(
+                            await asyncio.gather(
+                                *[
+                                    execute(actor, decision, slot)
+                                    for (actor, decision), slot in zip(cohort, slots, strict=True)
+                                ],
+                                return_exceptions=True,
+                            )
+                        )
+                    # Every dispatched write completes before detection/reset.
                     errors = [value for value in outcomes if isinstance(value, BaseException)]
                     if errors:
                         raise RuntimeError("round failed; partial events retained") from errors[0]
                     latest = sorted(outcomes, key=lambda event: event.sequence)
                     causal.extend(latest)
+                    for agent in batch:
+                        agent.observe(latest)
+                    if self.hooks.score:
+                        scores = await self.hooks.score()
+                        for agent in batch:
+                            observed = scores.get(agent.agent_id, {})
+                            agent.score = observed.get("score", agent.score)
+                            agent.score_unit = observed.get("score_unit", "objective points")
                     await publish("running", round_num)
                     if self.hooks.detect:
                         window = RoundWindow(
@@ -311,7 +378,7 @@ class RunCoordinator:
                 + budget.completion_tokens * config.output_cost_per_million
             ) / 1_000_000
             await publish("stopped" if self.stopping() else "completed")
-            return RunResult(
+            result = RunResult(
                 run_id,
                 condition,
                 config.seed,
@@ -325,10 +392,41 @@ class RunCoordinator:
                 times,
                 self.stopping(),
             )
+            import hashlib
+
+            result.provenance = {
+                "config_sha256": hashlib.sha256(config.model_dump_json().encode()).hexdigest(),
+                "provider_origin": config.provider_base_url,
+                "actor_count": len(agents),
+                "source": "real-model"
+                if "api.groq.com" in config.provider_base_url
+                else "unattested",
+                "receipts": [
+                    {"agent_id": agent.agent_id, **receipt}
+                    for agent in agents
+                    for receipt in agent.provider_receipts
+                ],
+            }
+            if config.target == "bazaar":
+                import json
+
+                from bench.review import catalog_hash
+
+                truth_path = Path(__file__).parent.parent / "configs/bazaar-truth.json"
+                result.provenance["catalog_sha256"] = catalog_hash(
+                    json.loads(await asyncio.to_thread(truth_path.read_text))
+                )
+            return result
         except Exception:
             await publish("failed")
             raise
         finally:
+            if pulse:
+                pulse.cancel()
+                from contextlib import suppress
+
+                with suppress(asyncio.CancelledError):
+                    await pulse
             try:
                 if self.hooks.close is not None:
                     await self.hooks.close()

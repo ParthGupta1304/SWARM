@@ -1,140 +1,228 @@
-# Phase 1: local run and acceptance
+# Phase 1: Bazaar, the swarm and acceptance
 
-## Start
+The approved scope uses **10 agents** instead of the PRD's 20-agent minimum,
+with six roles and **Groq `openai/gpt-oss-120b`** instead of local Qwen. These
+changes were explicitly requested by the project owner. Phase 2 Meko memory and
+Phase 1 stretch features are separate work.
+
+## Run the application
 
 ```sh
 uv sync --locked --extra postgres --extra charts
-cp .env.example .env
-# Edit .env locally with your provider URL, model and API key.
 uv run --no-sync python -m swarm.demo
 ```
 
-Open http://127.0.0.1:8080. Select a swarm run, isolated users, or the complete
-six-run benchmark. Stop cooperatively with the Stop run button. Each launcher
-owns two different disposable Bazaar processes/databases, an independent event
-store and its output directory. Default storage is SQLite with WAL; Postgres
-uses the same target/reset and invariant contracts and is directly verified.
-No production target URL has a reset endpoint. Closing the launcher stops its
-owned targets; artifacts remain under `artifacts/phase1/` and are Git-ignored.
+- Bazaar marketplace: http://127.0.0.1:8080/bazaar/
+- Swarmtest console: http://127.0.0.1:8080/
 
-Provider configuration stays in ignored `.env`:
+The launcher owns separate disposable live and verifier Bazaar processes,
+databases, and a durable event store. Default storage is SQLite/WAL; Postgres
+invariants and replay are directly checked on a temporary Postgres 16 cluster.
+Closing the launcher stops its owned processes. No reset endpoint is exposed
+on an arbitrary customer target.
 
-- `SWARMTEST_PROVIDER_URL`: OpenAI-compatible endpoint ending in `/v1`.
-- `SWARMTEST_MODEL`: actual model identifier.
-- `SWARMTEST_API_KEY`: credential read only by the Python server.
+The React/Vite storefront includes browsing/search, item details/questions,
+synthetic account creation/switching, cart add/remove, coupons, checkout, orders,
+seller listings/fulfilment, reviews, direct messages, blocking and listing reports.
+It talks to the actual live Bazaar API through an allowlisted same-origin proxy.
+Writes are rejected while a test run owns that live target. The independent
+verifier never resets the marketplace being explored.
 
-Set real input/output token prices in `configs/bazaar.yaml` for paid providers.
-The provider must return complete prompt/completion/total usage. Missing or
-uncertain usage aborts a run. Default prices are zero for local free inference;
-they do not represent an estimate of a paid provider's bill. Restart the launcher
-after changing provider settings. The browser never receives the key.
+Compiled assets are included, so Node is unnecessary to run the app. To edit
+or rebuild the storefront:
 
-Optional container entry point: `docker compose up --build`. It uses the root
-repository build context, binds only host localhost:8080 and stores artifacts
-under `artifacts/docker-phase1/`. The container definition is supplied; the
-local Docker daemon was unavailable, so container execution is not claimed as
-verified. Native Python execution is the checked path.
+```sh
+npm ci --prefix apps/bazaar/web
+npm run build --prefix apps/bazaar/web
+```
 
-## Integrated behavior
+## Provider and budgets
 
-The six PRD roles are configured in YAML. There are eight actor sessions:
-extra coupon/refund sessions exercise shared-account races without inventing
-an extra role. Seeded identities are checked against the app and fixed request
-identity arguments cannot be chosen by the model. The sock-puppet session
-controls the seller and a separate same-owner account; ownership is represented
-explicitly in the fixture. Tool definitions contain business operations only;
-findings, feature flags, telemetry and evaluator ground truth are not model tools.
+Keep credentials in ignored `.env`; do not replace an existing file or commit it.
 
-RunCoordinator preallocates Event sequences and dispatches action bursts at
-barriers. Every model decision, invalid action and rolling summary is charged
-to shared and per-actor caps. The UI reads persisted usage, actor summaries,
-request timelines and findings; it displays connection failures and empty states.
-Canonical Dev3 Finding payloads are stored intact and SSE emits real newlines.
-Run and benchmark output includes JSON/Markdown reports, canonical events,
-measured raw runs, CSV summaries and a recall chart.
+```dotenv
+GROQ_API_KEY=your_key_here
+SWARMTEST_PROVIDER_URL=https://api.groq.com/openai/v1
+SWARMTEST_MODEL=openai/gpt-oss-120b
+```
 
-`swarm.bazaar.make_hooks` connects atomic fixture resets, SQL/Python/log checks,
-independent HTTP replay, greedy whole-step reduction and publication. Error logs
-store action correlation, exception class, method and path rather than raw
-tracebacks or credentials. Reads see the previous or next reset state, never
-missing tables. Published findings/telemetry survive target resets; replay
-state and exploration data remain separate. Isolated mode resets app data before
-every actor and disables cross-run actor memory in benchmark comparisons.
+Python reads the key; the browser only receives the model name and run results.
+Groq uses the OpenAI-compatible SDK. For GPT-OSS, low reasoning effort and
+Groq's `disable_tool_validation` option avoid provider-side unknown-tool
+validation failures. **Local allowlists, exact-one-call validation, JSON Schema
+validation and fixed account identities still apply before any HTTP action.**
+A malformed model choice consumes measured usage and is rejected locally.
 
-## Frozen bug semantics
+The shipped prices are uncached-input $0.15 and output $0.60 per million tokens,
+verified against [Groq's model documentation](https://console.groq.com/docs/model/openai/gpt-oss-120b).
+Displayed dollars are an estimate from reported tokens and configured rates,
+not a claim about a provider invoice or free-credit balance. Update the rates
+when selecting another model.
 
-The original implementation let E2 and E4 reproduce sequentially. With the
-owner's authorization, these now implement interaction-dependent check/write
-races, matching the PRD's concurrent scenarios. No planted ID was renamed.
+Shared/per-actor token budgets and a conservative dollar reservation cap apply
+before model calls. Each run has a $0.50 cap. Evaluator overhead has its own
+20,000-token budget and dollar cap and is reported separately. Provider usage
+must include prompt, completion and total tokens. Missing/inconsistent usage
+aborts scoring; no amount is invented for a failed provider call.
 
-| ID | Scenario | Independent classification |
+Shared request spacing and a token bucket pace all actors. The token bucket
+reserves estimated usage and refunds the difference after measured usage is
+returned. Default limits are 24 requests/minute and 7,000 tokens/minute, below
+the observed account's 8,000-token/minute limit. This limits provider calls;
+HTTP business actions still dispatch together at round barriers. Other clients
+using the same key can still exhaust account limits. Stop cooperatively through
+the console; in-flight calls finish and queued calls can be cancelled.
+
+## Config-only CLI
+
+```sh
+uv run --no-sync swarmtest run --config swarmtest.yaml
+uv run --no-sync swarmtest run --config swarmtest.yaml --condition isolated
+uv run --no-sync swarmtest benchmark --config configs/bazaar-benchmark.yaml --output artifacts/groq-phase1
+# After a transient interruption, reuse only matching completed runs:
+uv run --no-sync swarmtest benchmark --config configs/bazaar-benchmark.yaml --output artifacts/groq-phase1 --resume
+```
+
+`swarmtest.yaml` binds OpenAPI, seed JSON, invariant SQL, personas, model,
+budgets and the owned Bazaar target. No Python hook factory is needed for this
+built-in target. Custom external targets must explicitly supply disposable
+reset/detection hooks; the CLI refuses to silently omit detection.
+
+Interactive runs allow eight rounds. The bounded benchmark config allows
+three rounds per actor for **both** conditions and uses equal 100,000-token
+caps and the same model. This short-horizon experiment fits provider quotas;
+it is not a claim of exhaustive exploration or complete recall. Isolated mode
+resets the app before each actor and disables cross-run actor memory. Swarm
+mode shares the app. Both use the same ten personas and aggregate budget.
+
+Completed benchmark conditions are checkpointed. Resume verifies the config,
+seeds, frozen truth, relevant source and provider protocol before reusing a run.
+Changed experiments require a new output directory. Failed runs retain partial
+events, are labelled unscored and never count as completed conditions. Earlier
+four-round experiments interrupted for an oracle correction or provider error
+are retained separately; they are not mixed into the final comparison.
+
+An optional `burst_tool: checkout` configuration selects a same-operation cohort
+and fires it at its own barrier; other pending actions follow afterward. With
+no selection, all ready actions share the round barrier. No model action is
+silently invented by the scheduler.
+
+## Objectives and observations
+
+The roster contains two casual buyers, two bargain hunters, one impatient
+clicker, two fraudsters, two sock-puppet actors and one troll. Coupon and payout
+pairs explicitly share an account; a session is not presented as a separate
+human owner. Every actor has a unique ID and fixed permitted identity fields.
+
+Scores are observed business outcomes: completed purchases, realized cents
+saved, excess compensation, same-owner reputation gains and successful contact
+after blocking. Shared-account sessions see the same account outcome. Scores
+are not proof that a bug exists. SQL/Python oracles and independent replay are
+the proof mechanism.
+
+Actors observe their own account's recent activity, blocks affecting them and
+public listing/sales notices. They do not receive oracle results, planted bug
+IDs, verifier state or other accounts' private order details. The rolling
+summary is charged to the same budgets as decisions.
+
+## Frozen planted cases
+
+| ID | Scenario | Required classification |
 | --- | --- | --- |
-| E1 | Two buyers purchase the last unit concurrently | Emergent |
-| E2 | Two sessions apply a coupon concurrently; sequential reuse returns 409 | Emergent |
-| E4 | Refund and dispute checks overlap; sequential repeat compensation returns 409 | Emergent |
-| E5 | Seller or same-owner sock account reviews its listing | Single-user in this seeded fixture |
-| E7 | A seller blocks a user who then contacts them via item questions | Emergent |
-| S1 | Empty-cart checkout throws 500 | Single-user |
-| S2 | Cart accepts nonpositive quantity | Single-user |
-| S4 | Search crashes on the special character `[` | Single-user |
+| E1 | Buyers purchase more units than the initial stock under overlap | Emergent |
+| E2 | Concurrent sessions redeem one account's coupon twice | Emergent |
+| E4 | Refund and dispute requests overlap and pay an order twice | Emergent |
+| E5 | A same-owner second account buys, the seller fulfils, and the buyer inflates reputation | Emergent |
+| E7 | A user who is already blocked posts an item question to the seller | Emergent |
+| S1 | Empty-cart checkout crashes | Single-user |
+| S2 | Nonpositive quantity accepted in a cart | Single-user |
+| S4 | Search for `[` crashes | Single-user |
 
-`configs/bazaar-truth.json` is evaluator-only and frozen before held-out runs.
-E5 is classified from its independently executable one-actor reproducer, rather
-than repeating the PRD's original emergent assumption. Shared-account E2/E4
-involve multiple sessions, not necessarily different human account owners.
-`BAZAAR_VERSION=v2` fixes E1/E2. Individual overrides can fix any other planted
-scenario. The fixed lock path works on both Postgres and SQLite; blocking DB
-work and exception-log persistence run outside the async request loop.
+E5 requires a fulfilled purchase and separate fixed seller/buyer identities;
+a direct seller review is rejected. E7 records actual block state at submission,
+not a timestamp comparison that can confuse same-second ordering. This internal
+oracle metadata is excluded from product responses.
 
-## Acceptance gate
+Use one config switch to apply the PRD's two advertised fixes:
 
-`bench.gate.evaluate_phase1` requires:
+```sh
+BAZAAR_VERSION=v2 uv run --no-sync python -m swarm.demo
+```
 
-1. Six complete measured runs: isolated/swarm × seeds 11, 22, 33, distinct from
-   development seed 1, with matching model/budget.
-2. At least three distinct verified, ground-truth emergent bugs.
-3. Evidence provenance `real-model`. Scripted fixture evidence cannot pass.
+v2 fixes E1/E2 while leaving the other planted cases enabled. Individual bug
+overrides remain available for focused direct checks. Phase 2's new E3 scenario
+is outside this Phase 1 delivery.
 
-The console writes `benchmark/phase1-gate.json`. A failed/incomplete/stopped run
-is never presented as a complete benchmark. Successful implementation checks do
-not satisfy this gate. Real provider discovery, prompt tuning on the dev seed,
-and the held-out benchmark are pending until a provider is configured. An
-independent evaluator LLM matches evidence to the manually reviewed frozen
-catalog, with expected oracle IDs withheld. Its separate 20,000-token evaluator
-budget and measured overhead are recorded in `benchmark/judge.json`, outside
-both conditions' equal exploration budgets. Judge errors/disagreements keep the
-gate incomplete; they do not overwrite the underlying oracle mapping. Live
-model performance remains an empirical outcome.
+## Replay and reporting
 
-## Verification evidence
+Every action is appended to the independent event store with a sequence,
+request, response hash/JSON, actor, round, seed, status, latency and usage.
+Generated resource IDs can be rebound from earlier replay responses; echoed
+fixture IDs are not incorrectly treated as creation dependencies.
 
-Direct checks are performed rather than adding a new test suite:
+Verification resets the independent target and checks the original oracle.
+Reduction removes whole steps, unrelated actors and individual unnecessary
+actions inside concurrent steps. Counterfactual actor-removal results and
+verification attempts are retained. Single-user findings remain single-user
+when other agents happened to be active. Errors or uncertain causal checks
+cannot pass the emergent gate. Races retain repeated-attempt evidence; barriers
+preserve simultaneous intent rather than guaranteeing OS/database scheduling.
 
-- All eight real Bazaar failures detected and independently replay verified on
-  owned SQLite targets; E1/E2/E4/E7 preserved multiple necessary sessions.
-- The same eight paths verified on a temporary Postgres 16 cluster, stopped
-  afterward without touching the pre-existing server.
-- Sequential coupon reuse rejected; fixed race paths prevent duplicate coupon
-  redemptions, overselling and duplicate payouts.
-- Seeded actor startup, fixed identity parameters, full canonical finding
-  ingestion, exception-log correlation, SSE framing and telemetry checked.
-- Full console path with an explicitly scripted local provider: concurrent run,
-  all six benchmark callbacks, persisted events/reports, live metrics, conflict
-  rejection for overlapping runs and cooperative stop. Fixture gate remained
-  incomplete as designed. Latest source rechecks are recorded in progress.md.
-- Browser review: activity view, budget meter, findings and comparison layout.
-  Native source lint/format/compilation and JavaScript syntax checks passed.
+The console includes an SSE activity feed with reconnection/cursors, shared
+resource graph, scores, usage/cost, stop, replay progress, findings and comparison.
+Graph links indicate shared resources, not causality. Completed benchmark
+reports can be loaded without another AI run:
 
-Evidence directories are local/ignored: `artifacts/phase1-check/` and
-`artifacts/phase1-console-check/`. They contain scripted/direct results, not
-live-model discovery claims.
+```sh
+uv run --no-sync python -m swarm.demo --port 8082 --results artifacts/groq-phase1
+```
 
-## Known practical limits
+The review screen shows the saved findings and replay evidence. A console opened
+with `--results` cannot overwrite that experiment by starting a new benchmark.
 
-Barriers preserve simultaneous action intent, not deterministic DB scheduling.
-Repeated replay measures reproducibility. Stable seeded IDs are restored on
-reset; dynamic generated-ID rebinding is not implemented, so a replay whose
-resource IDs change remains inconclusive instead of claiming verification.
-The byte-based prompt admission bound assumes byte-token providers and can
-stop earlier than an exact tokenizer. Post-demo Meko product memory, autonomous
-fix loops, a second-app pack and chaos injection are outside Phase 1.
+## Acceptance and human review
+
+The benchmark gate requires six completed runs (isolated/swarm x seeds
+11/22/33), ten actors, matching model/token cap, real provider receipts, the
+frozen catalog hash, at least three distinct causally verified emergent bugs,
+independent LLM assessment and an evidence-bound **human** spot-check.
+
+Candidates are independently assessed for actual correctness; membership of an
+assigned ID in the catalog is not a precision measurement. Precision stays
+unassessed until the relevant candidates have correctness labels. Reports
+include split recall, before/after precision, timing, tokens, estimated cost,
+cost per verified bug, repeatability, mean/range, CSV and chart exports.
+
+Inspect actual requests and evidence before recording a review in the console.
+Alternatively:
+
+```sh
+uv run --no-sync swarmtest review --config configs/bazaar-benchmark.yaml --output artifacts/groq-phase1 --finding-id FINDING_ID --reviewer YOUR_NAME --decision correct --note 'What I checked in the evidence'
+```
+
+Reviews are tied to the exact finding payload hash. Changed evidence invalidates
+an old review. The software never signs a human review automatically. A stopped,
+failed, scripted or incomplete experiment cannot pass real AI acceptance. The
+benchmark gate is separate from the full software/demo checklist in progress.md.
+
+## Offline fallback and verification
+
+```sh
+uv run --no-sync python -m swarm.demo --scripted --port 8081
+```
+
+This owns a local scripted model-provider fixture and needs no real key. It
+executes real marketplace requests and replay. Model choices and token counts
+are synthetic and prominently labelled; its results cannot pass AI acceptance.
+See [the two-minute demo script](demo-script.md) and
+[recorded fallback](demo/phase1-fallback.mp4). The captured-state recording clearly
+distinguishes manual actions, scripted integration and actual Groq results.
+
+Direct checks cover all eight cases on SQLite/Postgres, fixed race paths,
+three single-user versus five emergent causal reductions, generated-ID replay,
+ten actors/scores, money/token caps, pacing/stop, CLI wiring, six-run fixture
+comparison, evidence review and browser marketplace flows. No broad new test
+suite was added. Evidence is kept under ignored `artifacts/` directories.
+Docker definitions exclude `.env`, repository metadata, artifacts and local
+virtual environments from image context. Native execution is checked; the
+Docker daemon was unavailable, so container execution is not claimed verified.

@@ -1,8 +1,56 @@
 {
-  "users": ["alice_seller", "bob_buyer", "carol_buyer", "dave_fraudster", "erin_sockpuppet", "troll_tom"],
-  "items": [
-    {"seller": "alice_seller", "title": "Last unit: vintage keyboard", "price_cents": 12000, "inventory": 1},
-    {"seller": "alice_seller", "title": "Demo headphones", "price_cents": 8500, "inventory": 10}
+  "users": [
+    "alice_seller",
+    "bob_buyer",
+    "carol_buyer",
+    "dave_fraudster",
+    "erin_sockpuppet",
+    "troll_tom",
+    "grace_buyer",
+    "hugo_buyer",
+    "ivy_buyer",
+    "jules_buyer"
   ],
-  "coupon": {"code": "SWARM20", "discount_cents": 2000}
+  "items": [
+    {
+      "seller": "alice_seller",
+      "title": "Last unit: vintage keyboard",
+      "price_cents": 12000,
+      "inventory": 1
+    },
+    {
+      "seller": "alice_seller",
+      "title": "Demo headphones",
+      "price_cents": 8500,
+      "inventory": 10
+    },
+    {
+      "seller": "alice_seller",
+      "title": "Studio desk lamp",
+      "price_cents": 4200,
+      "inventory": 12
+    },
+    {
+      "seller": "alice_seller",
+      "title": "Portable field recorder",
+      "price_cents": 16000,
+      "inventory": 6
+    },
+    {
+      "seller": "alice_seller",
+      "title": "Everyday canvas bag",
+      "price_cents": 2800,
+      "inventory": 20
+    },
+    {
+      "seller": "alice_seller",
+      "title": "Analog desk clock",
+      "price_cents": 3500,
+      "inventory": 8
+    }
+  ],
+  "coupon": {
+    "code": "SWARM20",
+    "discount_cents": 2000
+  }
 }

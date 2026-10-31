@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import Awaitable, Callable, Sequence
 from hashlib import sha256
 from typing import Literal, Protocol
@@ -86,6 +87,7 @@ class HTTPReplayTarget:
         self._transport = transport
         self._timeout = timeout
         self._clients: dict[str, httpx.AsyncClient] = {}
+        self._responses: dict[str, dict] = {}
 
     async def aclose(self) -> None:
         for client in self._clients.values():
@@ -94,6 +96,7 @@ class HTTPReplayTarget:
 
     async def reset(self, seed: int) -> None:
         await self.aclose()
+        self._responses.clear()
         await self._reset(seed)
 
     async def execute(self, action: ReplayAction) -> ActionResult:
@@ -106,7 +109,19 @@ class HTTPReplayTarget:
                 follow_redirects=False,
             )
         client = self._clients[action.agent_id]
-        request = action.request
+        data = action.request.model_dump()
+        for location, source in action.bindings.items():
+            value = self._responses[source["event_id"]][source["key"]]
+            area, key = location.split(".", 1)
+            if area == "path":
+                parts = data["path"].split("/")
+                parts[int(key)] = str(value)
+                data["path"] = "/".join(parts)
+            elif area in {"json_body", "query"}:
+                data[area][key] = value
+            else:
+                raise ValueError("unsupported replay reference location")
+        request = type(action.request).model_validate(data)
         # Concatenation keeps the configured origin authoritative (no URL-join redirects).
         response = await client.request(
             request.method,
@@ -115,6 +130,12 @@ class HTTPReplayTarget:
             headers=request.headers,
             json=request.json_body,
         )
+        try:
+            payload = response.json()
+            if isinstance(payload, dict):
+                self._responses[action.event_id] = payload
+        except (ValueError, json.JSONDecodeError):
+            pass
         return ActionResult(
             event_id=action.event_id,
             status_code=response.status_code,
@@ -191,43 +212,122 @@ class ReplayVerifier:
         return VerificationResult(finding_id=finding.id, status=status, attempts=outcomes)
 
     async def minimize(self, finding: Finding) -> Finding:
-        """Greedy removal of whole steps; concurrent groups always remain intact.
+        """Reduce steps, actors and actions against independent reset/oracle checks."""
+        proof = await self.verify(finding)
+        if not proof.verified:
+            return apply_verification(finding, proof)
 
-        Each candidate is independently reset and verified. This finds a smaller
-        reproducer, not a proof of global minimality. Call after initial verify.
-        """
-        if not (await self.verify(finding)).verified:
-            raise ValueError("only reproducible findings can be minimized")
-        steps = list(finding.minimal_repro_sequence.steps)
-        index = 0
-        while index < len(steps) and len(steps) > 1:
-            candidate_steps = steps[:index] + steps[index + 1 :]
-            actions = [a for step in candidate_steps for a in step.actions]
+        def reduced(steps):
+            # Drop actions that depend on removed resource-producing actions.
+            available = set()
+            clean = []
+            for step in steps:
+                actions = [
+                    a
+                    for a in step.actions
+                    if all(ref["event_id"] in available for ref in a.bindings.values())
+                ]
+                if actions:
+                    clean.append(
+                        type(step)(
+                            actions=[
+                                a.model_copy(update={"expected_status": None}) for a in actions
+                            ]
+                        )
+                    )
+                    available.update(a.event_id for a in actions)
+            if not clean:
+                return None
+            actions = [a for step in clean for a in step.actions]
             agents = sorted({a.agent_id for a in actions})
-            data = finding.model_dump()
-            data.update(
-                evidence_events=[a.event_id for a in actions],
-                involved_agents=agents,
-                type="emergent" if len(agents) > 1 else "single-user",
-                minimal_repro_sequence=ReplayPlan(
-                    seed=finding.minimal_repro_sequence.seed,
-                    steps=candidate_steps,
-                ),
-                verified=False,
+            return Finding.model_validate(
+                {
+                    **finding.model_dump(),
+                    "evidence_events": [a.event_id for a in actions],
+                    "involved_agents": agents,
+                    "type": "emergent" if len(agents) > 1 else "single-user",
+                    "verified": False,
+                    "minimal_repro_sequence": ReplayPlan(
+                        seed=finding.minimal_repro_sequence.seed, steps=clean
+                    ),
+                }
             )
-            candidate = Finding.model_validate(data)
-            if (await self.verify(candidate)).verified:
-                steps = candidate_steps
-                finding = candidate
-                index = 0
-            else:
-                index += 1
-        data = finding.model_dump()
-        data["verified"] = True
-        return Finding.model_validate(data)
+
+        # Actor removal first removes whole unrelated histories efficiently.
+        for actor in list(finding.involved_agents):
+            steps = [
+                type(step)(actions=actions)
+                for step in finding.minimal_repro_sequence.steps
+                if (actions := [a for a in step.actions if a.agent_id != actor])
+            ]
+            candidate = reduced(steps)
+            if candidate is not None:
+                result = await self.verify(candidate)
+                if result.verified:
+                    finding, proof = candidate, result
+        changed = True
+        while changed:
+            changed = False
+            steps = finding.minimal_repro_sequence.steps
+            candidates = [steps[:i] + steps[i + 1 :] for i in range(len(steps))]
+            for i, step in enumerate(steps):
+                if len(step.actions) > 1:
+                    for j in range(len(step.actions)):
+                        candidates.append(
+                            [
+                                *steps[:i],
+                                type(step)(actions=step.actions[:j] + step.actions[j + 1 :]),
+                                *steps[i + 1 :],
+                            ]
+                        )
+            for candidate_steps in candidates:
+                candidate = reduced(candidate_steps)
+                if candidate is not None:
+                    result = await self.verify(candidate)
+                    if result.verified:
+                        finding, proof = candidate, result
+                        changed = True
+                        break
+        checks = []
+        for actor in finding.involved_agents if len(finding.involved_agents) > 1 else []:
+            candidate = reduced(
+                [
+                    type(step)(actions=actions)
+                    for step in finding.minimal_repro_sequence.steps
+                    if (actions := [a for a in step.actions if a.agent_id != actor])
+                ]
+            )
+            if candidate is None:
+                checks.append({"removed_actor": actor, "status": "not_reproduced"})
+                continue
+            result = await self.verify(candidate)
+            if result.verified:
+                return await self.minimize(candidate)
+            checks.append({"removed_actor": actor, "status": result.status})
+        conclusive = all(check["status"] == "not_reproduced" for check in checks)
+        return Finding.model_validate(
+            {
+                **finding.model_dump(),
+                "verified": conclusive,
+                "causality": (
+                    "single-user"
+                    if len(finding.involved_agents) == 1
+                    else "interaction-required"
+                    if conclusive
+                    else "inconclusive"
+                ),
+                "verification": {**proof.model_dump(mode="json"), "causal_checks": checks},
+            }
+        )
 
 
 def apply_verification(finding: Finding, result: VerificationResult) -> Finding:
     if finding.id != result.finding_id:
         raise ValueError("verification belongs to a different finding")
-    return Finding.model_validate({**finding.model_dump(), "verified": result.verified})
+    return Finding.model_validate(
+        {
+            **finding.model_dump(),
+            "verified": result.verified,
+            "verification": result.model_dump(mode="json"),
+        }
+    )

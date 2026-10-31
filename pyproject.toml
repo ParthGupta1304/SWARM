@@ -32,6 +32,7 @@ dev = ["ruff>=0.14,<1"]
 
 [tool.setuptools.packages.find]
 include = ["detect*", "verify*", "bench*", "memory*", "swarm*", "adapters*", "apps*", "mock_bazaar*", "dashboard*", "configs*"]
+exclude = ["apps.bazaar.web*", "apps.bazaar.static*", "apps.bazaar.tests*"]
 
 [tool.ruff]
 target-version = "py311"
@@ -41,6 +42,6 @@ line-length = 100
 select = ["E", "F", "I", "UP", "B", "ASYNC"]
 
 [tool.setuptools.package-data]
-"apps.bazaar" = ["seed_data.json", "openapi.json", "invariants.sql"]
+"apps.bazaar" = ["seed_data.json", "openapi.json", "invariants.sql", "static/**/*", "static/*"]
 "dashboard" = ["*.html", "*.css", "*.js"]
 "configs" = ["*.yaml", "*.json"]

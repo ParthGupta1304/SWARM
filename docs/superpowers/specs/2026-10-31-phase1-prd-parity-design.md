@@ -1,6 +1,6 @@
 # Phase 1 PRD completion addendum
 
-Status: proposed for user review, 2026-10-31. This extends the previously approved
+Status: approved with Groq and 10 agents, 2026-10-31. This extends the previously approved
 Phase 1 design and resolves the gaps in `docs/prd-audit-2026-10-31.md`.
 
 ## Scope and approach
@@ -8,8 +8,7 @@ Phase 1 design and resolves the gaps in `docs/prd-audit-2026-10-31.md`.
 Complete Phase 1 P0/P1 requirements and its demo delivery. Phase 2 and Phase 1
 stretch features remain outside this implementation. Preserve the existing
 Python contracts, async runtime, independent replay environment and OpenAPI
-adapter. Keep the user's Qwen/OpenAI-compatible provider choice; do not spend
-the configured paid API key to substitute for friend-machine Qwen testing.
+adapter. Use the configured Groq OpenAI-compatible provider; credentials stay in `.env`.
 
 Recommended approach: add a React/Vite Bazaar storefront built into static
 assets served by the current Python launcher; extend existing modules rather
@@ -49,10 +48,11 @@ timeline as its signature. Responsive layouts, keyboard focus, accessible
 labels, reduced motion, escaped user content and clear empty/error states are
 required. Product artwork should be local and work without an external CDN.
 
-## 2. Twenty actors and measurable objectives
+## 2. Ten actors and measurable objectives
 
-Ship the PRD's 20-agent population: six casual buyers, four bargain hunters,
-four impatient clickers, two fraudsters, two sock-puppet actors and two trolls.
+Ship the user's approved 10-agent population: two casual buyers, two bargain
+hunters, one impatient clicker, two fraudsters, two sock-puppet actors and one troll.
+This explicitly overrides the PRD's 20-agent minimum.
 Seed sufficient synthetic users while preserving existing fixture IDs where
 practical. Shared-account sessions are explicit for coupon/refund races; they
 must not be described as distinct account owners. Every actor has a unique ID,
@@ -127,7 +127,7 @@ Scripted fixtures remain conspicuously labelled. A source label alone is not
 presented as proof of a real provider run.
 
 Require six completed runs, equal model/budget, three held-out seeds, at least
-three causally verified emergent IDs, 20-actor population, independent matching
+three causally verified emergent IDs, 10-actor population, independent matching
 and manual review for the real-model benchmark gate. Maintain a separate full
 Phase 1 checklist for non-benchmark deliverables. Report mean/range, recall
 splits, assessed precision, repeatability, first/all-find timing, tokens,
@@ -144,18 +144,18 @@ not erase the visible last benchmark.
 Deliver a two-minute demo script, a repeatable local demonstration command and
 a recorded fallback. A recording made with scripted actions must say so and
 cannot substitute for real AI discovery evidence. Document native and Docker
-startup and exact Qwen environment settings for the friend's machine. Make
+startup and exact Groq environment settings. Make
 the single-launcher path openable and verify it in a browser at desktop/mobile
 sizes, including actual marketplace interactions.
 
 Direct checks, consistent with the existing project workflow: all eight bug
 paths and fixed variants on SQLite and Postgres; causal single-user versus
-multi-user reduction; dynamic replay references; 20-actor concurrency and
+multi-user reduction; dynamic replay references; 10-actor concurrency and
 scores; budgets/rate/stop; config-only CLI; six-run fixture benchmark; review
 and provenance negative controls; storefront flows; packaged assets and
 container startup when the daemon is available. Add no broad new test suite.
 
-The friend's real Qwen runs remain the empirical acceptance step. Complete the
+Real Groq runs are the empirical acceptance step. Complete the
 software and handoff here; record real-model acceptance as pending until those
 runs and manual review actually succeed. Neither a local scripted recording nor
 an API connection preflight satisfies the PRD's discovery/benchmark gate.
@@ -165,16 +165,15 @@ an API connection preflight satisfies the PRD's discovery/benchmark gate.
 1. Project context: complete; current implementation and actual PRD audited.
 2. Visual companion: not needed for the current architecture/scope decision;
    offer only if a later visual choice needs comparison.
-3. Clarifications: existing instructions settle Phase 1 scope, Qwen testing on
-   the friend's machine, local-only development handoff and direct-check style.
-4. Approaches and design: proposed above, awaiting user review.
+3. Clarifications: existing instructions settle Phase 1 scope, Groq evaluation on this machine, local-only development handoff and direct-check style.
+4. Approaches and design: proposed above, approved by the user.
 5. Spec self-review: complete; no placeholders; implementation versus empirical
    acceptance explicitly separated; Phase 2 excluded.
-6. Written spec approval: pending. Begin implementation after approval.
-7. Implement in bounded steps: causal/report correctness; backend/seed/20-actor
+6. Written spec approval: complete; user requested Groq and 10 agents.
+7. Implement in bounded steps: causal/report correctness; backend/seed/10-actor
    objectives and budgets; built-in CLI/benchmark review; marketplace; live
    evidence presentation; integration checks, recording and handoff.
-8. Update progress/audit with actual evidence and remaining Qwen acceptance;
+8. Update progress/audit with actual evidence and remaining Groq acceptance;
    publish verified implementation using the user's existing main-push approval
    after integration checks pass, preserving teammate history.
 

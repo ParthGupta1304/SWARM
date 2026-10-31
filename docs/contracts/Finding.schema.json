@@ -18,6 +18,16 @@
           "title": "Agent Id",
           "type": "string"
         },
+        "bindings": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "title": "Bindings",
+          "type": "object"
+        },
         "event_id": {
           "minLength": 1,
           "title": "Event Id",
@@ -179,6 +189,17 @@
   },
   "additionalProperties": false,
   "properties": {
+    "causality": {
+      "default": "unassessed",
+      "enum": [
+        "unassessed",
+        "single-user",
+        "interaction-required",
+        "inconclusive"
+      ],
+      "title": "Causality",
+      "type": "string"
+    },
     "evidence": {
       "items": {
         "additionalProperties": {
@@ -279,6 +300,13 @@
       ],
       "title": "Type",
       "type": "string"
+    },
+    "verification": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Verification",
+      "type": "object"
     },
     "verified": {
       "default": false,

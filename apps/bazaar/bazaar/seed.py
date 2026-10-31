@@ -11,8 +11,10 @@ from .database import Base
 from .models import Coupon, Item, User
 
 
-def seed_database(database_url: str, seed: int) -> None:
-    fixture = json.loads((Path(__file__).parent.parent / "seed_data.json").read_text())
+def seed_database(database_url: str, seed: int, fixture_path: str | Path | None = None) -> None:
+    fixture = json.loads(
+        Path(fixture_path or Path(__file__).parent.parent / "seed_data.json").read_text()
+    )
     rng = random.Random(seed)
     target = create_engine(database_url)
     preserved = {"wire_findings", "run_telemetry", "findings"}

@@ -17,6 +17,7 @@ from detect.contracts import Finding as CanonicalFinding
 
 from .config import BUG_IDS
 from .database import Base, SessionLocal, engine, get_db, settings
+from .marketplace import router as marketplace_router
 from .models import (
     ActivityEvent,
     Block,
@@ -46,6 +47,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="Bazaar API", version="0.1.0", lifespan=lifespan)
+app.include_router(marketplace_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
@@ -347,7 +349,9 @@ def ask_question(item_id: int, payload: QuestionRequest, db: Db):
     )
     if is_blocked and not settings.bugs["block_bypass_question"]:
         raise HTTPException(status_code=403, detail="buyer is blocked by this seller")
-    question = ItemQuestion(item_id=item_id, **payload.model_dump())
+    question = ItemQuestion(
+        item_id=item_id, blocked_at_send=bool(is_blocked), **payload.model_dump()
+    )
     db.add(question)
     db.flush()
     emit(db, "item_question_created", payload.author_id, item_id=item_id, seller_id=item.seller_id)
@@ -359,6 +363,21 @@ def create_review(item_id: int, payload: ReviewRequest, db: Db):
     item = get_or_404(db, Item, item_id)
     author = get_or_404(db, User, payload.author_id)
     seller = get_or_404(db, User, item.seller_id)
+    if author.id == seller.id:
+        raise HTTPException(403, "Use a purchasing account to review this listing")
+    purchase = db.scalar(
+        select(Order)
+        .join(OrderLine)
+        .where(
+            Order.buyer_id == author.id,
+            Order.status == "fulfilled",
+            OrderLine.item_id == item_id,
+        )
+    )
+    if purchase is None:
+        raise HTTPException(403, "Only a buyer with a fulfilled purchase can review")
+    if db.scalar(select(Review).where(Review.item_id == item_id, Review.author_id == author.id)):
+        raise HTTPException(409, "You have already reviewed this item")
     if author.owner_key == seller.owner_key and not settings.bugs["self_dealing"]:
         raise HTTPException(status_code=403, detail="sellers cannot review their own item")
     review = Review(item_id=item_id, **payload.model_dump())
@@ -501,3 +520,9 @@ def update_telemetry(payload: dict, db: Db):
 @app.get("/api/runs", include_in_schema=False)
 def list_runs(db: Db):
     return [run.payload for run in db.scalars(select(RunTelemetry))]
+
+
+@app.post("/api/runs/verification", include_in_schema=False)
+def verification_progress(payload: dict, db: Db):
+    emit(db, "verification", None, **payload)
+    return {"ok": True}

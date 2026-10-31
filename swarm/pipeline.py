@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable, Sequence
+from collections.abc import Awaitable, Callable, Sequence
 
 from detect.contracts import Finding
 from detect.findings import build_replay, capture_errors, finding_from_violation
@@ -22,6 +22,7 @@ class DetectionPipeline:
         invariants: Sequence[SQLInvariant] = (),
         bug_mapping: dict[str, str] | None = None,
         python_checks: Sequence[Callable[[RoundWindow], list[Violation]]] = (),
+        progress: Callable[[dict], Awaitable[None]] | None = None,
     ):
         replay_url = getattr(verifier.target, "base_url", None)
         if replay_url is None or replay_url.rstrip("/") == live_base_url.rstrip("/"):
@@ -31,6 +32,7 @@ class DetectionPipeline:
         self.verifier, self.runner, self.invariants = verifier, runner, invariants
         self.bug_mapping = bug_mapping or {}
         self.python_checks = python_checks
+        self.progress = progress
         self._seen: set[tuple] = set()
 
     async def __call__(self, window: RoundWindow) -> list[Finding]:
@@ -76,6 +78,15 @@ class DetectionPipeline:
             key = (finding.oracle_triggered, tuple(sorted(finding.involved_agents)))
             if key in self._seen:
                 continue
+            if self.progress:
+                await self.progress(
+                    {
+                        "finding_id": finding.id,
+                        "run_id": finding.run_id,
+                        "status": "replaying",
+                        "actors": finding.involved_agents,
+                    }
+                )
             result = await self.verifier.verify(finding)
             finding = apply_verification(finding, result)
             if finding.verified:

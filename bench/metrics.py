@@ -25,6 +25,9 @@ class BenchmarkRun(Contract):
     elapsed_s: float = Field(ge=0)
     findings: list[Finding] = Field(default_factory=list)
     finding_times_s: dict[str, float] = Field(default_factory=dict)
+    actor_count: int = Field(default=0, ge=0)
+    provenance: dict = Field(default_factory=dict)
+    assessments: dict[str, bool] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def valid_run(self) -> BenchmarkRun:
@@ -39,6 +42,8 @@ class BenchmarkRun(Contract):
             raise ValueError("duplicate finding IDs")
         if set(self.finding_times_s) - ids:
             raise ValueError("finding times reference an unknown finding")
+        if set(self.assessments) - ids:
+            raise ValueError("assessments reference an unknown finding")
         if any(not 0 <= t <= self.elapsed_s for t in self.finding_times_s.values()):
             raise ValueError("finding times must lie within the run")
         return self
@@ -73,11 +78,27 @@ def score_run(run: BenchmarkRun, truth: dict[str, str]) -> dict:
         "emergent_recall": recall("emergent"),
         "single_user_recall": recall("single-user"),
         "precision_before_verifier": (
-            sum(f.mapped_bug_id in truth for f in run.findings) / len(run.findings)
-            if run.findings
+            sum(run.assessments[f.id] for f in run.findings) / len(run.findings)
+            if run.findings and all(f.id in run.assessments for f in run.findings)
             else None
         ),
-        "precision_after_verifier": len(matched) / len(verified) if verified else None,
+        "precision_after_verifier": (
+            sum(run.assessments[f.id] for f in verified) / len(verified)
+            if verified and all(f.id in run.assessments for f in verified)
+            else None
+        ),
+        "assessed_candidates": len(run.assessments),
+        "false_positives_before_verifier": (
+            sum(not run.assessments[f.id] for f in run.findings)
+            if run.findings and all(f.id in run.assessments for f in run.findings)
+            else None
+        ),
+        "false_positives_after_verifier": (
+            sum(not run.assessments[f.id] for f in verified)
+            if verified and all(f.id in run.assessments for f in verified)
+            else None
+        ),
+        "actor_count": run.actor_count,
         "verified_findings": len(verified),
         "unverified_findings": len(run.findings) - len(verified),
         "found_bug_ids": sorted(found),
@@ -121,6 +142,8 @@ def summarize(runs: Sequence[BenchmarkRun], truth: dict[str, str], *, dev_seed: 
             "single_user_recall",
             "precision_before_verifier",
             "precision_after_verifier",
+            "false_positives_before_verifier",
+            "false_positives_after_verifier",
             "cost_usd",
             "tokens_used",
             "time_to_first_find_s",

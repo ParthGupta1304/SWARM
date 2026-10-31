@@ -15,7 +15,15 @@ class BudgetAccountingError(RuntimeError):
 
 
 class TokenBudget:
-    def __init__(self, limit: int, *, parent: TokenBudget | None = None):
+    def __init__(
+        self,
+        limit: int,
+        *,
+        parent: TokenBudget | None = None,
+        max_dollars: float | None = None,
+        input_price: float = 0,
+        output_price: float = 0,
+    ):
         if limit <= 0:
             raise ValueError("token budget must be positive")
         self.parent = parent
@@ -26,6 +34,14 @@ class TokenBudget:
         self._reserved = 0
         self._lock = RLock()
         self.uncertain = False
+        self.max_dollars = max_dollars
+        self.input_price, self.output_price = input_price, output_price
+
+    @property
+    def cost_usd(self):
+        return (
+            self.prompt_tokens * self.input_price + self.completion_tokens * self.output_price
+        ) / 1e6
 
     def reserve(
         self, messages: list[dict], tools: list[dict] | None, output_cap: int
@@ -40,6 +56,10 @@ class TokenBudget:
             if self.uncertain:
                 raise BudgetAccountingError("previous model call has unknown usage")
             remaining = self.limit - self.used - self._reserved - input_bound
+            price = max(self.input_price, self.output_price)
+            if self.max_dollars is not None and price:
+                monetary_tokens = int((self.max_dollars - self.cost_usd) * 1e6 / price)
+                remaining = min(remaining, monetary_tokens - self._reserved - input_bound)
             output = min(output_cap, remaining)
             if output <= 0:
                 raise BudgetExhausted("insufficient budget for prompt plus output")
@@ -86,3 +106,10 @@ class TokenBudget:
         with self._lock:
             self._reserved -= reservation
             self.uncertain = True
+
+    def release(self, reservation: int) -> None:
+        """Release a call cancelled before it reaches the provider."""
+        if self.parent is not None:
+            self.parent.release(reservation)
+        with self._lock:
+            self._reserved -= reservation

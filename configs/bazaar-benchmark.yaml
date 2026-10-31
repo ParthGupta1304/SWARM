@@ -1,0 +1,201 @@
+project: bazaar-phase1
+spec: ../apps/bazaar/openapi.json
+app_base_url: http://localhost:8000
+provider_base_url: https://api.groq.com/openai/v1
+model: openai/gpt-oss-120b
+api_key_env: GROQ_API_KEY
+seed: 1
+max_rounds: 3
+token_budget: 100000
+input_cost_per_million: 0.15
+output_cost_per_million: 0.6
+personas:
+- agent_id: buyer
+  role: casual_buyer
+  seeded_user_id: 2
+  fixed_arguments:
+    user_id: 2
+    author_id: 2
+    blocker_id: 2
+  objective: Browse listings, buy an item and inspect your cart. Try normal and boundary inputs.
+  tools:
+  - list_items
+  - get_cart
+  - add_to_cart
+  - checkout
+  completion_tool: null
+  token_budget: 30000
+  max_steps: 24
+- agent_id: bargain
+  role: bargain_hunter
+  seeded_user_id: 3
+  fixed_arguments:
+    user_id: 3
+    author_id: 3
+    blocker_id: 3
+  objective: Maximize coupon savings for your shared shopping account. Investigate applying the advertised
+    SWARM20 coupon before buying anything, including repeated simultaneous attempts with your other browser
+    session. Then purchase at the lowest possible price.
+  tools:
+  - list_items
+  - get_cart
+  - add_to_cart
+  - apply_coupon
+  - checkout
+  completion_tool: null
+  token_budget: 30000
+  max_steps: 24
+- agent_id: impatient
+  role: impatient_clicker
+  seeded_user_id: 6
+  fixed_arguments:
+    user_id: 6
+    author_id: 6
+    blocker_id: 6
+  objective: Buy scarce stock before other buyers. Retry purchases and experiment with supported checkout
+    options.
+  tools:
+  - list_items
+  - get_cart
+  - add_to_cart
+  - checkout
+  completion_tool: null
+  token_budget: 30000
+  max_steps: 24
+- agent_id: fraud
+  role: fraudster
+  seeded_user_id: 4
+  fixed_arguments:
+    user_id: 4
+    author_id: 4
+    blocker_id: 4
+  objective: Purchase an item, then maximize compensation through refund and dispute channels, including
+    overlapping requests from your second browser session. Test supported overlap delays of 100 milliseconds.
+    Use actual order IDs from responses. Continue exploring compensation options after the first attempt.
+  tools:
+  - list_items
+  - get_cart
+  - add_to_cart
+  - checkout
+  - list_orders
+  - request_refund
+  - open_dispute
+  completion_tool: null
+  token_budget: 30000
+  max_steps: 24
+- agent_id: seller
+  role: sock_puppet
+  seeded_user_id: 1
+  fixed_arguments:
+    user_id: 1
+    author_id: 1
+    seller_id: 1
+    blocker_id: 1
+  objective: Manage seller account 1. Check sales frequently and fulfil paid orders promptly, especially
+    purchases from same-owner account 5. Block user 6 who keeps contacting you. Prioritize fulfilment
+    over creating new listings.
+  tools:
+  - list_items
+  - list_sales
+  - fulfil_order
+  - block_user
+  - create_listing
+  completion_tool: null
+  token_budget: 30000
+  max_steps: 24
+- agent_id: troll
+  role: troll
+  seeded_user_id: 6
+  fixed_arguments:
+    user_id: 6
+    author_id: 6
+    blocker_id: 6
+  objective: Contact the seller through item questions even if the seller blocks you. Continue trying
+    and inspect listings for context.
+  tools:
+  - list_items
+  - ask_question
+  completion_tool: null
+  token_budget: 30000
+  max_steps: 24
+- agent_id: coupon-retry
+  role: bargain_hunter
+  seeded_user_id: 3
+  fixed_arguments:
+    user_id: 3
+    author_id: 3
+    blocker_id: 3
+  objective: Maximize coupon savings for your shared shopping account. Investigate applying the advertised
+    SWARM20 coupon before buying anything, including repeated simultaneous attempts with your other browser
+    session. Then purchase at the lowest possible price.
+  tools:
+  - list_items
+  - get_cart
+  - add_to_cart
+  - apply_coupon
+  - checkout
+  completion_tool: null
+  token_budget: 30000
+  max_steps: 24
+- agent_id: dispute-session
+  role: fraudster
+  seeded_user_id: 4
+  fixed_arguments:
+    user_id: 4
+    author_id: 4
+    blocker_id: 4
+  objective: You are the second browser session on account 4. Another session buys items and requests
+    refunds. Watch for its new orders and immediately request dispute credit on an observed order ID while
+    the other session may request a refund. Test supported overlap delays of 100 milliseconds. If no order
+    is known, inspect your orders again.
+  tools:
+  - list_items
+  - get_cart
+  - list_orders
+  - open_dispute
+  completion_tool: null
+  token_budget: 30000
+  max_steps: 24
+- agent_id: sock-buyer
+  role: sock_puppet
+  seeded_user_id: 5
+  fixed_arguments:
+    user_id: 5
+    author_id: 5
+    seller_id: 5
+    blocker_id: 5
+  objective: Buy an item from seller 1, who shares your ownership. Wait for fulfilment, then improve the
+    listing reputation with a positive review. Inspect your orders to learn their IDs.
+  tools:
+  - list_items
+  - get_cart
+  - add_to_cart
+  - checkout
+  - list_orders
+  - create_review
+  completion_tool: null
+  token_budget: 30000
+  max_steps: 24
+- agent_id: buyer-2
+  role: casual_buyer
+  seeded_user_id: 7
+  fixed_arguments:
+    user_id: 7
+    author_id: 7
+    blocker_id: 7
+    seller_id: 7
+  objective: Browse normally, search, purchase and inspect orders. Explore unusual boundary inputs.
+  tools:
+  - list_items
+  - get_cart
+  - add_to_cart
+  - checkout
+  - list_orders
+  completion_tool: null
+  token_budget: 30000
+  max_steps: 24
+max_dollars: 0.5
+requests_per_minute: 24
+tokens_per_minute: 7000
+model_concurrency: 2
+target: bazaar

@@ -11,6 +11,7 @@ from detect.invariants import load_invariants
 from detect.python_checks import check_exception_logs, check_response_contract
 from swarm.pipeline import DetectionPipeline
 from swarm.runtime import RunConfig, RuntimeHooks
+from swarm.scoring import score_actors
 from swarm.targets import BazaarEnvironment
 from verify import HTTPReplayTarget, ReplayVerifier
 
@@ -21,7 +22,7 @@ def make_hooks(config: RunConfig, environment: BazaarEnvironment) -> RuntimeHook
     live, replay = environment.live, environment.replay
     if config.app_base_url != live.url:
         raise ValueError("runtime must use this environment's owned live target")
-    invariants = load_invariants(BAZAAR_ROOT / "invariants.sql")
+    invariants = load_invariants(config.invariants or BAZAAR_ROOT / "invariants.sql")
     by_id = {inv.id: inv for inv in invariants}
     replay_runner = replay.invariant_runner()
     client = httpx.AsyncClient(base_url=live.url, timeout=10)
@@ -68,6 +69,7 @@ def make_hooks(config: RunConfig, environment: BazaarEnvironment) -> RuntimeHook
         invariants=invariants,
         bug_mapping=mapping,
         python_checks=[python_checks],
+        progress=lambda payload: post("/api/runs/verification", payload),
     )
 
     async def detect(window):
@@ -75,8 +77,27 @@ def make_hooks(config: RunConfig, environment: BazaarEnvironment) -> RuntimeHook
         for index, finding in enumerate(findings):
             # Reduce whole setup steps; this improves actor attribution and preserves bursts.
             if finding.verified:
+                await post(
+                    "/api/runs/verification",
+                    {
+                        "finding_id": finding.id,
+                        "run_id": finding.run_id,
+                        "status": "reducing",
+                        "actors": finding.involved_agents,
+                    },
+                )
                 finding = await pipeline.verifier.minimize(finding)
                 findings[index] = finding
+            await post(
+                "/api/runs/verification",
+                {
+                    "finding_id": finding.id,
+                    "run_id": finding.run_id,
+                    "status": "verified" if finding.verified else "unverified",
+                    "actors": finding.involved_agents,
+                    "steps": len(finding.minimal_repro_sequence.steps),
+                },
+            )
             await post("/api/findings", finding.model_dump(mode="json"))
         return findings
 
@@ -89,4 +110,5 @@ def make_hooks(config: RunConfig, environment: BazaarEnvironment) -> RuntimeHook
         detect=detect,
         close=close,
         progress=lambda payload: post("/api/runs/telemetry", payload),
+        score=lambda: asyncio.to_thread(score_actors, config, live),
     )

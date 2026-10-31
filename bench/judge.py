@@ -7,6 +7,7 @@ import openai
 
 from bench.metrics import BenchmarkRun
 from swarm.budget import TokenBudget
+from swarm.provider import ProviderPacer
 
 DESCRIPTIONS = {
     "E1": "Concurrent buyers purchase more units than initial stock",
@@ -28,14 +29,15 @@ def judge_findings(
     *,
     token_budget: int = 20000,
 ) -> dict:
-    budget = TokenBudget(token_budget)
+    budget = TokenBudget(
+        token_budget,
+        max_dollars=config.max_dollars,
+        input_price=config.input_cost_per_million,
+        output_price=config.output_cost_per_million,
+    )
+    pacer = ProviderPacer(config.requests_per_minute, config.tokens_per_minute)
     judgements = []
-    # One independently reviewed exemplar per mapped bug, plus unknown reports.
-    unique = {}
-    for run in runs:
-        for finding in run.findings:
-            if finding.verified:
-                unique.setdefault(finding.mapped_bug_id or finding.id, finding)
+    unique = {finding.id: finding for run in runs for finding in run.findings}
     with openai.OpenAI(
         base_url=config.provider_base_url, api_key=api_key, max_retries=0, timeout=30
     ) as client:
@@ -45,7 +47,10 @@ def judge_findings(
                     "role": "system",
                     "content": "You are an independent evaluation judge. Match the finding "
                     "to an ID in the supplied frozen catalog, or null if unsupported. Return "
-                    "JSON with bug_id (catalog string ID or JSON null) and a short reason. ",
+                    "JSON with bug_id (catalog string ID or JSON null), valid_finding "
+                    "(boolean: does the evidence support a real application failure?), "
+                    "and a short reason. An unsupported candidate is false even if its "
+                    "title resembles a catalog entry.",
                 },
                 {
                     "role": "user",
@@ -56,6 +61,9 @@ def judge_findings(
                                 for bug, kind in truth.items()
                             },
                             "title": finding.title,
+                            "verified_by_oracle_replay": finding.verified,
+                            "verification": finding.verification,
+                            "causality": finding.causality,
                             "evidence": [
                                 {k: v for k, v in row.items() if k != "bug_id"}
                                 for row in finding.evidence[:3]
@@ -77,15 +85,26 @@ def judge_findings(
                     ),
                 },
             ]
-            reservation, cap = budget.reserve(messages, None, 256)
+            reservation, cap = budget.reserve(messages, None, 512)
+            rate_reservation = pacer.wait(len(json.dumps(messages).encode()) // 3 + 128, cap)
             try:
                 response = client.chat.completions.create(
-                    model=config.model, messages=messages, max_tokens=cap, seed=config.seed
+                    model=config.model,
+                    messages=messages,
+                    max_tokens=cap,
+                    seed=config.seed,
+                    **(
+                        {"extra_body": {"reasoning_effort": "low"}}
+                        if "api.groq.com" in config.provider_base_url
+                        and config.model.startswith("openai/gpt-oss")
+                        else {}
+                    ),
                 )
             except Exception:
                 budget.fail(reservation)
                 raise RuntimeError("evaluation judge usage is unknown") from None
-            budget.finish(reservation, response.usage)
+            tokens = budget.finish(reservation, response.usage)
+            pacer.finish(rate_reservation, tokens)
             content = response.choices[0].message.content or ""
             try:
                 data = json.loads(
@@ -94,6 +113,8 @@ def judge_findings(
             except (ValueError, TypeError):
                 raise RuntimeError("evaluation judge returned invalid JSON") from None
             guessed = data.get("bug_id")
+            if not isinstance(data.get("valid_finding"), bool):
+                raise RuntimeError("evaluation judge omitted the correctness assessment")
             if guessed is not None and guessed not in truth:
                 raise RuntimeError("evaluation judge returned an unknown bug ID")
             judgements.append(
@@ -102,6 +123,8 @@ def judge_findings(
                     "oracle_bug_id": finding.mapped_bug_id,
                     "judge_bug_id": guessed,
                     "agrees_with_reviewed_oracle": guessed == finding.mapped_bug_id,
+                    "correct": data["valid_finding"],
+                    "reason": str(data.get("reason", ""))[:1000],
                 }
             )
     cost = (

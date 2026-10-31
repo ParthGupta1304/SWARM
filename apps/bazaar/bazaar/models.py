@@ -94,6 +94,7 @@ class ItemQuestion(Base):
     item_id: Mapped[int] = mapped_column(ForeignKey("items.id"), index=True)
     author_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     body: Mapped[str] = mapped_column(Text)
+    blocked_at_send: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -150,3 +151,19 @@ class RequestError(Base):
     method: Mapped[str] = mapped_column(String(12))
     path: Mapped[str] = mapped_column(String(300))
     error_class: Mapped[str] = mapped_column(String(100))
+
+
+class Message(Base):
+    __tablename__ = "messages"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    sender_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    recipient_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    body: Mapped[str] = mapped_column(Text)
+
+
+class ListingReport(Base):
+    __tablename__ = "listing_reports"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    reporter_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    item_id: Mapped[int] = mapped_column(ForeignKey("items.id"))
+    reason: Mapped[str] = mapped_column(String(300))

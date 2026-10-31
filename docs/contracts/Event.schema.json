@@ -137,6 +137,10 @@
       "default": null,
       "title": "Response Body Hash"
     },
+    "response_json": {
+      "$ref": "#/$defs/JsonValue",
+      "default": null
+    },
     "response_status": {
       "anyOf": [
         {

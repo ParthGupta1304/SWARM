@@ -78,6 +78,19 @@ class AgentLoop:
                 sorted(self.adapter.get_tool_names() - {"register", "login", "health"})
             )
         )
+
+        def compact_schema(value):
+            if isinstance(value, dict):
+                return {
+                    k: compact_schema(v)
+                    for k, v in value.items()
+                    if not (k == "title" and isinstance(v, str))
+                }
+            if isinstance(value, list):
+                return [compact_schema(v) for v in value]
+            return value
+
+        self.tool_defs = compact_schema(self.tool_defs)
         self.seeded_user_id = seeded_user_id
         self.fixed_arguments = fixed_arguments or {}
         for tool in self.tool_defs:
@@ -109,6 +122,10 @@ class AgentLoop:
         self.used_fallback = self.done = self.stopped = False
         self.error: str | None = None
         self._summary_at = -1
+        self.pacer = None
+        self.score_unit = "objective points"
+        self.provider_receipts = []
+        self.cancelled = None
 
     def _system_prompt(self) -> str:
         return (
@@ -116,6 +133,8 @@ class AgentLoop:
             f"Score: {self.score_desc}. Call exactly ONE available tool per turn. "
             'If native tools are unavailable, return {"tool":"name","arguments":{}}. '
             "Account setup is already complete. Follow the objective using tool results."
+            f" Your account ID is {self.seeded_user_id}. "
+            "You are authorized to test this synthetic local marketplace."
         )
 
     def _register_account(self) -> bool:
@@ -169,18 +188,85 @@ class AgentLoop:
         kwargs = {"model": self.model, "messages": messages, "max_tokens": cap, "seed": self.seed}
         if tools:
             kwargs.update(tools=tools, tool_choice="auto", parallel_tool_calls=False)
+        if "api.groq.com" in str(self.client.base_url) and self.model.startswith("openai/gpt-oss"):
+            kwargs["extra_body"] = {"reasoning_effort": "low"}
+            if tools:
+                kwargs["extra_body"]["disable_tool_validation"] = True
+        if self.pacer:
+            # Rough tokenizer estimate is for rate pacing only, never cost admission.
+            estimate = len(json.dumps(messages + (tools or [])).encode()) // 3 + 128
+            try:
+                rate_reservation = self.pacer.wait(estimate, cap, self.cancelled)
+            except BudgetExhausted:
+                self.budget.release(reservation)
+                raise
         try:
             response = self.client.chat.completions.create(**kwargs)
-        except Exception:
+        except Exception as exc:
             self.budget.fail(reservation)
-            raise BudgetAccountingError("model call failed; provider usage is unknown") from None
+            body = getattr(exc, "body", {})
+            details = body.get("error", body) if isinstance(body, dict) else {}
+            code = (
+                str(details.get("code", "unspecified"))
+                if isinstance(details, dict)
+                else "unspecified"
+            )
+            code = code if code.replace("_", "").isalnum() else "unspecified"
+            raise BudgetAccountingError(
+                f"Provider {type(exc).__name__} "
+                f"HTTP {getattr(exc, 'status_code', 'unknown')} ({code}); "
+                "usage is unknown"
+            ) from None
         tokens = self.budget.finish(reservation, response.usage)
+        if self.pacer:
+            self.pacer.finish(rate_reservation, tokens)
+        self.provider_receipts.append(
+            {
+                "id": response.id,
+                "model": response.model,
+                "tokens": tokens,
+                "system_fingerprint": response.system_fingerprint,
+            }
+        )
         self.tokens_used += tokens
         return response, tokens
 
     def _append_turn(self, messages: list[dict]) -> None:
         self._turns.append(messages)
         self.history.extend(messages)
+
+    def observe(self, events) -> None:
+        """Share account-local observations and public marketplace notices only."""
+        observations = []
+        for event in events:
+            if event.agent_id == self.agent_id:
+                continue
+            body = event.request.json_body if isinstance(event.request.json_body, dict) else {}
+            same_account = body.get("user_id") == self.seeded_user_id
+            blocked = event.tool == "block_user" and body.get("blocked_id") == self.seeded_user_id
+            if same_account or blocked or event.tool == "create_listing":
+                observations.append(
+                    {
+                        "operation": event.tool,
+                        "request": body,
+                        "status": event.response_status,
+                        "result": event.response_json,
+                    }
+                )
+            elif event.tool == "checkout" and "list_sales" in self.tool_names:
+                observations.append(
+                    {"notice": "A purchase completed; inspect your sales for orders to fulfil."}
+                )
+        if observations:
+            self._append_turn(
+                [
+                    {
+                        "role": "user",
+                        "content": "Recent marketplace observations: "
+                        + json.dumps(observations[-8:]),
+                    }
+                ]
+            )
 
     def _maybe_summarise(self) -> None:
         if (
@@ -340,6 +426,7 @@ class AgentLoop:
             "steps": self.step,
             "tokens_used": self.tokens_used,
             "score": self.score,
+            "score_unit": self.score_unit,
             "done": self.done,
             "total_tool_calls": self.total_tool_calls,
             "invalid_tool_calls": self.invalid_tool_calls,
