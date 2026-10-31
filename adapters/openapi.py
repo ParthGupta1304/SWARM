@@ -278,3 +278,4 @@ class OpenAPIAdapter:
         except requests.RequestException as exc:
             latency = (time.perf_counter() - t0) * 1000
             return 503, json.dumps({"error": str(exc)}), latency
+
