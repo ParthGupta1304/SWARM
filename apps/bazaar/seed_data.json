@@ -1,0 +1,8 @@
+{
+  "users": ["alice_seller", "bob_buyer", "carol_buyer", "dave_fraudster", "erin_sockpuppet", "troll_tom"],
+  "items": [
+    {"seller": "alice_seller", "title": "Last unit: vintage keyboard", "price_cents": 12000, "inventory": 1},
+    {"seller": "alice_seller", "title": "Demo headphones", "price_cents": 8500, "inventory": 10}
+  ],
+  "coupon": {"code": "SWARM20", "discount_cents": 2000}
+}
