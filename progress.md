@@ -31,7 +31,10 @@ from 20 to **10 agents** and replacing local Qwen with **Groq** from local `.env
   included and credentials/node_modules excluded. The two-minute captured-state fallback is in `docs/demo/phase1-fallback.mp4`;
   source labels distinguish manual, scripted and real Groq sections. The latest teammate React dashboard is merged alongside the full run console;
   its event and finding field mappings are compatible with the canonical API.
-  Final publication follows the merged checks. Further edge-case work is deferred
+  Merged verification passed: six scripted comparison runs, all eight planted
+  cases, cooperative stop, clean-copy startup, both frontend builds, locked
+  Python setup, lint/format/compilation and package asset checks. `main` is the
+  supported pull/run branch for this delivery. Further edge-case work is deferred
   per owner request.
 - Docker daemon unavailable; native execution is the verified path. No Meko
   handoff export was performed. See `docs/phase1.md` for current instructions.
