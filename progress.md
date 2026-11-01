@@ -1,3 +1,18 @@
+# Actual evaluation values — 2026-11-01
+
+- Evaluation cards now explain their meanings and display an explicitly labelled
+  historical real-Groq benchmark when the current workspace has no run. The
+  sanitized snapshot is recomputed from canonical measured runs plus the valid
+  human E7 review, with evidence hashes; no result was invented or new AI run made.
+- Condition C: mean emergent recall 33.3%, reviewed precision 100%, first verified
+  finding 53.5 seconds, all-seed repeatability 33.3%, mean exploration cost
+  $0.0034506. This is the old three-round, three-seed comparison, separate from
+  current six-round runs. Current selected results take precedence.
+- Production build, ten frontend checks and 22 Python checks pass. Historical
+  reference records do not repopulate workspace history or count as a new run.
+
+---
+
 # Frontend cleanup — 2026-11-01
 
 - Navbar now hides on scroll down and returns on scroll up. Removed workflow,

@@ -159,7 +159,7 @@ export function ComparisonChart() {
   ).map(([key, label]) => ({
     label,
     value:
-      c.benchmark?.conditions[key]?.metrics.emergent_recall?.mean ??
+      c.evaluationBenchmark?.conditions[key]?.metrics.emergent_recall?.mean ??
       (c.run?.condition === key ? selected : null),
   }));
   return (
@@ -191,11 +191,13 @@ export function ComparisonChart() {
         ))}
       </div>
       <figcaption className="mt-2 text-[11px] text-muted-foreground">
-        {c.benchmark
-          ? c.state?.gate?.source === "scripted-fixture"
-            ? "Scripted benchmark · rehearsal only"
-            : "Benchmark mean · three matched seeds"
-          : "Selected run · the other condition is unmeasured"}
+        {c.historicalEvaluation
+          ? "Historical real-AI benchmark · three matched seeds"
+          : c.benchmark
+            ? c.state?.gate?.source === "scripted-fixture"
+              ? "Scripted benchmark · rehearsal only"
+              : "Benchmark mean · three matched seeds"
+            : "Selected run · the other condition is unmeasured"}
       </figcaption>
     </figure>
   );

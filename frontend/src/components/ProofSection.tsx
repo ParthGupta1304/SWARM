@@ -36,7 +36,7 @@ const TOP_RIGHT_OUTLINE_TILES = [
 
 export const ProofSection: React.FC = () => {
   const c = useConsole();
-  const m = c.benchmark?.conditions[c.condition]?.metrics;
+  const m = c.evaluationBenchmark?.conditions[c.condition]?.metrics;
   const verified = new Set(
     c.findings.filter((f) => f.verified).map((f) => f.id),
   );
@@ -51,15 +51,27 @@ export const ProofSection: React.FC = () => {
     ),
     percent(c.run ? precision(c.run) : m?.precision_after_verifier?.mean),
     duration(
-      times.length
-        ? Math.min(...times)
+      c.run
+        ? times.length
+          ? Math.min(...times)
+          : undefined
         : (m?.time_to_first_find_s?.mean ?? undefined),
     ),
     percent(
       repeatability(
-        c.benchmark?.runs.filter((r) => r.condition === c.condition) || [],
+        c.evaluationBenchmark?.runs.filter(
+          (r) => r.condition === c.condition,
+        ) || [],
       ),
     ),
+  ];
+  const explanations = [
+    "The share of planted interaction bugs found. Benchmark values average three runs; higher means better coverage.",
+    "The share of verified findings supported by a judge or human review. High precision means fewer false alarms, not that every bug was found.",
+    c.run
+      ? "Time from run start to its first verified finding. Lower is faster."
+      : "Average time from run start to the first verified finding, across runs with a finding. Lower is faster.",
+    "The share of discovered bug types found in all three seeds. Higher means the same bugs are found more consistently.",
   ];
   return (
     <section
@@ -143,6 +155,9 @@ export const ProofSection: React.FC = () => {
           Find the failures that only appear <br className="max-sm:hidden" />
           when real users collide.
         </h2>
+        <p className="mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+          {c.evaluationLabel}
+        </p>
       </div>
 
       {/* 4 Ticket Cards + Pine Tree Backdrop + Target Categories Bar */}
@@ -161,7 +176,7 @@ export const ProofSection: React.FC = () => {
         </div>
 
         {/* Four meadow tickets — selected run measurements */}
-        <ul className="grid grid-cols-2 gap-3.5 sm:gap-5 lg:grid-cols-4">
+        <ul className="relative z-20 grid grid-cols-2 gap-3.5 sm:gap-5 lg:grid-cols-4">
           {BENCHMARK_TICKET_SLOTS.map((slot, idx) => (
             <li
               key={slot.id}
@@ -180,12 +195,15 @@ export const ProofSection: React.FC = () => {
                 <p className="text-[14px] leading-snug font-medium text-ink sm:text-[15px]">
                   {slot.label}
                 </p>
-                {/* Blank metric value area — no fabricated numbers */}
+                {/* Measured evaluation value */}
                 <p
                   aria-label={`${slot.label}: ${values[idx]}`}
                   className="min-h-[44px] font-heading text-[clamp(2.3rem,4.3vw,3.65rem)] leading-none font-semibold tracking-[-0.035em] text-ink"
                 >
                   {values[idx]}
+                </p>
+                <p className="text-[12px] leading-relaxed text-ink/80">
+                  {explanations[idx]}
                 </p>
               </div>
             </li>

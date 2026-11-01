@@ -92,6 +92,7 @@ def create_app(config, environment, output: Path, results: Path | None = None):
         "recheck": None,
     }
     truth = json.loads((STATIC.parent / "configs" / "bazaar-truth.json").read_text())
+    evaluation = json.loads((STATIC.parent / "configs" / "phase1-evaluation.json").read_text())
 
     operations = asyncio.Lock()
     archive = RunArchive(output)
@@ -386,7 +387,7 @@ def create_app(config, environment, output: Path, results: Path | None = None):
 
     @app.get("/api/config")
     async def configuration():
-        return public_config(config, truth)
+        return {**public_config(config, truth), "evaluation": evaluation}
 
     @app.post("/api/config/export")
     async def configuration_export(options: RunOptions):

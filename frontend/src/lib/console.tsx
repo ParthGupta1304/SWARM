@@ -336,6 +336,15 @@ function useConsoleData() {
     (!run || state.benchmark.runs.some((row) => row.run_id === run.run_id))
       ? state.benchmark
       : null;
+  const historicalEvaluation =
+    !run && !benchmark && !state?.busy && !!config?.evaluation;
+  const evaluationBenchmark =
+    benchmark || (historicalEvaluation ? config?.evaluation?.benchmark : null);
+  const evaluationLabel = historicalEvaluation
+    ? `Historical real-AI benchmark · ${config?.evaluation?.rounds_per_run} rounds per run · seeds 11, 22, 33. Separate from this workspace.`
+    : run
+      ? "Evaluation of the selected run. Multi-seed metrics require a matching benchmark."
+      : "Evaluation of the current benchmark.";
   return {
     state,
     config,
@@ -364,6 +373,9 @@ function useConsoleData() {
     refresh,
     loadHistory,
     benchmark,
+    evaluationBenchmark,
+    historicalEvaluation,
+    evaluationLabel,
   };
 }
 type ConsoleData = ReturnType<typeof useConsoleData>;

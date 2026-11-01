@@ -207,7 +207,7 @@ export const BENCHMARK_TICKET_SLOTS: BlankMetricSlot[] = [
   },
   {
     id: "verified-precision",
-    label: "Verified precision",
+    label: "Reviewed precision",
     sublabel: "Before and after deterministic replay",
     value: "",
   },
@@ -220,7 +220,7 @@ export const BENCHMARK_TICKET_SLOTS: BlankMetricSlot[] = [
   {
     id: "repeatability",
     label: "Seed repeatability",
-    sublabel: "Share of seeds in which each bug is found",
+    sublabel: "Share of discovered bug types found in all three seeds",
     value: "",
   },
 ];

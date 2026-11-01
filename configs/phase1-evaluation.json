@@ -1,0 +1,336 @@
+{
+  "schema_version": 1,
+  "source": "real-model",
+  "recorded_at": "2026-10-31T14:18:25.827668+00:00",
+  "rounds_per_run": 3,
+  "model": "openai/gpt-oss-120b",
+  "description": "Historical real-AI benchmark; not a current workspace run. Human evidence-bound review overrides the judge for E7.",
+  "evidence_directory": "artifacts/groq-phase1",
+  "evidence_sha256": {
+    "measured-runs.json": "d4e130b0b95e52b4c72c2d8a9c58586c677e5ccacf5af737b3c7906aa36d1b4c",
+    "judge.json": "29856fa649d4dbf5c383e564f2cd730960816331c591d5b8f144964c15f684d3",
+    "manual-review.json": "c942abe9d47a4553131df48441a1d440bfb4ce26f0b3616adf677ea36b670f6f"
+  },
+  "reviewed_verified_findings": 6,
+  "benchmark": {
+    "schema_version": 1,
+    "dev_seed": 1,
+    "held_out_seeds": [
+      11,
+      22,
+      33
+    ],
+    "conditions": {
+      "isolated": {
+        "metrics": {
+          "recall": {
+            "mean": 0.041666666666666664,
+            "min": 0.0,
+            "max": 0.125,
+            "measured_runs": 3
+          },
+          "emergent_recall": {
+            "mean": 0.0,
+            "min": 0.0,
+            "max": 0.0,
+            "measured_runs": 3
+          },
+          "single_user_recall": {
+            "mean": 0.1111111111111111,
+            "min": 0.0,
+            "max": 0.3333333333333333,
+            "measured_runs": 3
+          },
+          "precision_before_verifier": {
+            "mean": 1.0,
+            "min": 1.0,
+            "max": 1.0,
+            "measured_runs": 1
+          },
+          "precision_after_verifier": {
+            "mean": 1.0,
+            "min": 1.0,
+            "max": 1.0,
+            "measured_runs": 1
+          },
+          "false_positives_before_verifier": {
+            "mean": 0,
+            "min": 0,
+            "max": 0,
+            "measured_runs": 1
+          },
+          "false_positives_after_verifier": {
+            "mean": 0,
+            "min": 0,
+            "max": 0,
+            "measured_runs": 1
+          },
+          "cost_usd": {
+            "mean": 0.0032718499999999998,
+            "min": 0.0032075999999999993,
+            "max": 0.0033045,
+            "measured_runs": 3
+          },
+          "tokens_used": {
+            "mean": 17670.333333333332,
+            "min": 17550,
+            "max": 17748,
+            "measured_runs": 3
+          },
+          "time_to_first_find_s": {
+            "mean": 67.45947320799678,
+            "min": 67.45947320799678,
+            "max": 67.45947320799678,
+            "measured_runs": 1
+          },
+          "time_to_all_finds_s": {
+            "mean": null,
+            "min": null,
+            "max": null,
+            "measured_runs": 0
+          }
+        },
+        "repeatability": {
+          "E1": 0.0,
+          "E2": 0.0,
+          "E4": 0.0,
+          "E5": 0.0,
+          "E7": 0.0,
+          "S1": 0.0,
+          "S2": 0.3333333333333333,
+          "S4": 0.0
+        }
+      },
+      "swarm": {
+        "metrics": {
+          "recall": {
+            "mean": 0.20833333333333334,
+            "min": 0.125,
+            "max": 0.25,
+            "measured_runs": 3
+          },
+          "emergent_recall": {
+            "mean": 0.33333333333333337,
+            "min": 0.2,
+            "max": 0.4,
+            "measured_runs": 3
+          },
+          "single_user_recall": {
+            "mean": 0.0,
+            "min": 0.0,
+            "max": 0.0,
+            "measured_runs": 3
+          },
+          "precision_before_verifier": {
+            "mean": 1.0,
+            "min": 1.0,
+            "max": 1.0,
+            "measured_runs": 3
+          },
+          "precision_after_verifier": {
+            "mean": 1.0,
+            "min": 1.0,
+            "max": 1.0,
+            "measured_runs": 3
+          },
+          "false_positives_before_verifier": {
+            "mean": 0,
+            "min": 0,
+            "max": 0,
+            "measured_runs": 3
+          },
+          "false_positives_after_verifier": {
+            "mean": 0,
+            "min": 0,
+            "max": 0,
+            "measured_runs": 3
+          },
+          "cost_usd": {
+            "mean": 0.0034506,
+            "min": 0.0033761999999999998,
+            "max": 0.00349485,
+            "measured_runs": 3
+          },
+          "tokens_used": {
+            "mean": 18695,
+            "min": 18095,
+            "max": 19006,
+            "measured_runs": 3
+          },
+          "time_to_first_find_s": {
+            "mean": 53.4900450970005,
+            "min": 52.948932250001235,
+            "max": 53.78754508299971,
+            "measured_runs": 3
+          },
+          "time_to_all_finds_s": {
+            "mean": null,
+            "min": null,
+            "max": null,
+            "measured_runs": 0
+          }
+        },
+        "repeatability": {
+          "E1": 0.3333333333333333,
+          "E2": 1.0,
+          "E4": 0.0,
+          "E5": 0.0,
+          "E7": 0.3333333333333333,
+          "S1": 0.0,
+          "S2": 0.0,
+          "S4": 0.0
+        }
+      }
+    },
+    "runs": [
+      {
+        "run_id": "5d2b7938-d8cb-4234-8795-4cb796cfb9a3",
+        "condition": "isolated",
+        "seed": 11,
+        "recall": 0.0,
+        "emergent_recall": 0.0,
+        "single_user_recall": 0.0,
+        "precision_before_verifier": null,
+        "precision_after_verifier": null,
+        "assessed_candidates": 0,
+        "false_positives_before_verifier": null,
+        "false_positives_after_verifier": null,
+        "actor_count": 10,
+        "verified_findings": 0,
+        "unverified_findings": 0,
+        "found_bug_ids": [],
+        "time_to_first_find_s": null,
+        "time_to_all_finds_s": null,
+        "tokens_used": 17550,
+        "cost_usd": 0.0032075999999999993,
+        "cost_per_verified_bug_usd": null,
+        "elapsed_s": 99.44561516699832
+      },
+      {
+        "run_id": "baab44c0-b533-482f-acbb-53984ce0d4bd",
+        "condition": "isolated",
+        "seed": 22,
+        "recall": 0.125,
+        "emergent_recall": 0.0,
+        "single_user_recall": 0.3333333333333333,
+        "precision_before_verifier": 1.0,
+        "precision_after_verifier": 1.0,
+        "assessed_candidates": 1,
+        "false_positives_before_verifier": 0,
+        "false_positives_after_verifier": 0,
+        "actor_count": 10,
+        "verified_findings": 1,
+        "unverified_findings": 0,
+        "found_bug_ids": [
+          "S2"
+        ],
+        "time_to_first_find_s": 67.45947320799678,
+        "time_to_all_finds_s": null,
+        "tokens_used": 17748,
+        "cost_usd": 0.00330345,
+        "cost_per_verified_bug_usd": 0.00330345,
+        "elapsed_s": 101.47472262500014
+      },
+      {
+        "run_id": "3766693b-8281-44f1-a73a-02332c29d2ba",
+        "condition": "isolated",
+        "seed": 33,
+        "recall": 0.0,
+        "emergent_recall": 0.0,
+        "single_user_recall": 0.0,
+        "precision_before_verifier": null,
+        "precision_after_verifier": null,
+        "assessed_candidates": 0,
+        "false_positives_before_verifier": null,
+        "false_positives_after_verifier": null,
+        "actor_count": 10,
+        "verified_findings": 0,
+        "unverified_findings": 0,
+        "found_bug_ids": [],
+        "time_to_first_find_s": null,
+        "time_to_all_finds_s": null,
+        "tokens_used": 17713,
+        "cost_usd": 0.0033045,
+        "cost_per_verified_bug_usd": null,
+        "elapsed_s": 101.56560349999927
+      },
+      {
+        "run_id": "270db26c-b06e-4606-bf02-7ae5534c0577",
+        "condition": "swarm",
+        "seed": 11,
+        "recall": 0.25,
+        "emergent_recall": 0.4,
+        "single_user_recall": 0.0,
+        "precision_before_verifier": 1.0,
+        "precision_after_verifier": 1.0,
+        "assessed_candidates": 2,
+        "false_positives_before_verifier": 0,
+        "false_positives_after_verifier": 0,
+        "actor_count": 10,
+        "verified_findings": 2,
+        "unverified_findings": 0,
+        "found_bug_ids": [
+          "E1",
+          "E2"
+        ],
+        "time_to_first_find_s": 53.78754508299971,
+        "time_to_all_finds_s": null,
+        "tokens_used": 19006,
+        "cost_usd": 0.00349485,
+        "cost_per_verified_bug_usd": 0.001747425,
+        "elapsed_s": 118.89048879199981
+      },
+      {
+        "run_id": "d2f5c80f-5274-4905-99f5-aa8001c1903b",
+        "condition": "swarm",
+        "seed": 22,
+        "recall": 0.125,
+        "emergent_recall": 0.2,
+        "single_user_recall": 0.0,
+        "precision_before_verifier": 1.0,
+        "precision_after_verifier": 1.0,
+        "assessed_candidates": 1,
+        "false_positives_before_verifier": 0,
+        "false_positives_after_verifier": 0,
+        "actor_count": 10,
+        "verified_findings": 1,
+        "unverified_findings": 0,
+        "found_bug_ids": [
+          "E2"
+        ],
+        "time_to_first_find_s": 53.73365795800055,
+        "time_to_all_finds_s": null,
+        "tokens_used": 18984,
+        "cost_usd": 0.0034807499999999995,
+        "cost_per_verified_bug_usd": 0.0034807499999999995,
+        "elapsed_s": 114.73507879200042
+      },
+      {
+        "run_id": "0d9e34bb-68e4-4498-aeeb-fb44c9702b4c",
+        "condition": "swarm",
+        "seed": 33,
+        "recall": 0.25,
+        "emergent_recall": 0.4,
+        "single_user_recall": 0.0,
+        "precision_before_verifier": 1.0,
+        "precision_after_verifier": 1.0,
+        "assessed_candidates": 2,
+        "false_positives_before_verifier": 0,
+        "false_positives_after_verifier": 0,
+        "actor_count": 10,
+        "verified_findings": 2,
+        "unverified_findings": 0,
+        "found_bug_ids": [
+          "E2",
+          "E7"
+        ],
+        "time_to_first_find_s": 52.948932250001235,
+        "time_to_all_finds_s": null,
+        "tokens_used": 18095,
+        "cost_usd": 0.0033761999999999998,
+        "cost_per_verified_bug_usd": 0.0016880999999999999,
+        "elapsed_s": 108.5275303749986
+      }
+    ]
+  }
+}

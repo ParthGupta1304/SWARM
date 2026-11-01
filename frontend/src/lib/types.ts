@@ -20,6 +20,12 @@ export type Config = Options & {
   token_budget: number;
   roles: { id: string; name: string; count: number; objective: string }[];
   bugs: Bug[];
+  evaluation?: {
+    source: string;
+    recorded_at: string;
+    rounds_per_run: number;
+    benchmark: Benchmark;
+  };
 };
 export type Usage = {
   model_calls?: number;

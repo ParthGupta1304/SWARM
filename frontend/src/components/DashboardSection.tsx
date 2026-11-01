@@ -44,7 +44,7 @@ export const DashboardSection: React.FC<{ compact?: boolean }> = ({
   };
   const ids = foundIds(c.findings);
   const conditionMeta = CONDITION_DESCRIPTIONS[activeCondition];
-  const m = c.benchmark?.conditions[c.condition]?.metrics;
+  const m = c.evaluationBenchmark?.conditions[c.condition]?.metrics;
   const DASHBOARD_KPI_SLOTS = [
     {
       id: "kpi-recall",
@@ -64,7 +64,8 @@ export const DashboardSection: React.FC<{ compact?: boolean }> = ({
       value: percent(
         c.run ? precision(c.run) : m?.precision_after_verifier?.mean,
       ),
-      sublabel: "Requires explicit judge or human assessment",
+      sublabel:
+        "Supported findings / reviewed verified findings; measures false alarms",
     },
     {
       id: "kpi-cost",
@@ -77,12 +78,14 @@ export const DashboardSection: React.FC<{ compact?: boolean }> = ({
       label: "Seed repeatability",
       value: percent(
         repeatability(
-          c.benchmark?.runs.filter((r) => r.condition === c.condition) || [],
+          c.evaluationBenchmark?.runs.filter(
+            (r) => r.condition === c.condition,
+          ) || [],
         ),
       ),
       sublabel: m
         ? "Share of found IDs reproduced in all three seeds"
-        : "Run a benchmark to measure repeatability",
+        : "Needs three matched seeds; a single run cannot measure consistency",
     },
   ];
   const roster = (c.config?.roles || []).map((role) => {
@@ -181,6 +184,11 @@ export const DashboardSection: React.FC<{ compact?: boolean }> = ({
               </div>
             </div>
 
+            {c.historicalEvaluation && (
+              <p className="mt-5 text-xs leading-relaxed text-muted-foreground">
+                {c.evaluationLabel}
+              </p>
+            )}
             {/* Four KPI cards — measured values or explicit unmeasured states */}
             <dl className="mt-6 grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 lg:grid-cols-4">
               {DASHBOARD_KPI_SLOTS.map((slot) => (
@@ -217,7 +225,9 @@ export const DashboardSection: React.FC<{ compact?: boolean }> = ({
                   <p className="mt-3 text-[13px] text-muted-foreground">
                     {c.run
                       ? `${ids.size} of ${c.config?.bugs.length || 8} distinct bugs verified · ${c.findings.filter((f) => f.verified && f.type === "emergent").reduce((a, f) => a.add(f.mapped_bug_id || f.id), new Set()).size} emergent · ${c.findings.filter((f) => f.verified && f.type === "single-user").reduce((a, f) => a.add(f.mapped_bug_id || f.id), new Set()).size} single-user`
-                      : "Choose a measured run or start checking."}
+                      : c.historicalEvaluation
+                        ? "Historical three-seed averages. Select a run to inspect current evidence."
+                        : "Choose a measured run or start checking."}
                   </p>
                   <ComparisonChart />
                 </div>
