@@ -10,8 +10,9 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from threading import RLock
-from typing import Any, Literal, Optional, Protocol
+from typing import Any, Literal, Protocol
 
+from dotenv import dotenv_values, find_dotenv
 from pydantic import JsonValue
 
 from detect.contracts import Finding
@@ -160,6 +161,7 @@ class MekoMemoryStore:
     def __init__(self, local_store: LocalMemoryStore, meko_client: Any = None):
         self._local = local_store
         self._meko = meko_client
+        self.publication_errors: dict[str, str] = {}
 
     def save_finding(self, project: str, finding: Finding) -> None:
         # Local database is always the source of truth
@@ -167,8 +169,10 @@ class MekoMemoryStore:
         if self._meko:
             try:
                 self._meko.publish_finding(finding)
+                self.publication_errors.pop(finding.id, None)
                 logger.info("Successfully published finding %s to Meko", finding.id)
             except Exception as exc:
+                self.publication_errors[finding.id] = type(exc).__name__
                 logger.warning(
                     "Meko publish_finding failed for %s (falling back to local): %s",
                     finding.id,
@@ -219,7 +223,7 @@ class MekoMemoryStore:
 
 
 def create_memory_store(
-    config: Optional[dict[str, Any]] = None,
+    config: dict[str, Any] | None = None,
     local_db_path: str | Path = "swarmtest_memory.sqlite3",
 ) -> MemoryStore:
     """
@@ -238,8 +242,15 @@ def create_memory_store(
     datapack_id_env = store_cfg.get("datapack_id_env", "MEKO_DATAPACK_ID")
     mcp_url = store_cfg.get("mcp_url", "https://mcp.mekodata.ai/mcp")
 
-    api_key = os.getenv(api_key_env, "").strip()
-    datapack_id = os.getenv(datapack_id_env, "").strip()
+    path = find_dotenv()
+    local_values = dotenv_values(path) if path else {}
+
+    def current(name):
+        value = local_values.get(name) if name in local_values else os.getenv(name)
+        return (value or "").strip()
+
+    api_key = current(api_key_env)
+    datapack_id = current(datapack_id_env)
 
     if not api_key or not datapack_id:
         logger.warning(

@@ -6,15 +6,17 @@ Local storage remains the source of truth for replays and regression checks.
 All API keys are strictly redacted in any error messages.
 """
 
+# ruff: noqa: E501 -- preserve the generated Markdown's existing long lines
+
 from __future__ import annotations
 
 import base64
 import hashlib
 import json
 import logging
-import os
 import time
-from typing import Any, Optional
+from typing import Any
+
 import requests
 
 from detect.contracts import Finding
@@ -54,7 +56,9 @@ def format_finding_markdown(
     for step_idx, step in enumerate(finding.minimal_repro_sequence.steps, start=1):
         action_descs = []
         for a in step.actions:
-            clean_body = f" with payload {json.dumps(a.request.json_body)}" if a.request.json_body else ""
+            clean_body = (
+                f" with payload {json.dumps(a.request.json_body)}" if a.request.json_body else ""
+            )
             action_descs.append(
                 f"agent `{a.agent_id}` calls `{a.request.method} {a.request.path}`{clean_body}"
             )
@@ -88,7 +92,7 @@ def format_finding_markdown(
 
 ## Verification Status
 - **Verified**: Yes (proven via deterministic replay in an isolated environment).
-- **Involved Agents**: {', '.join(f'`{ag}`' for ag in finding.involved_agents)}
+- **Involved Agents**: {", ".join(f"`{ag}`" for ag in finding.involved_agents)}
 - **Causality**: `{finding.causality}`
 """
 
@@ -101,7 +105,9 @@ def format_run_results_markdown(
     """Format run recheck results (fixed, still_failing, regressed) into markdown."""
     rows = []
     for r in results:
-        rows.append(f"| `{r.get('finding_id', 'unknown')}` | `{r.get('classification', 'unknown')}` |")
+        rows.append(
+            f"| `{r.get('finding_id', 'unknown')}` | `{r.get('classification', 'unknown')}` |"
+        )
     table = "\n".join(rows) if rows else "| None | None |"
 
     return f"""# Swarmtest Run Results: {run_id}
@@ -110,7 +116,7 @@ def format_run_results_markdown(
 
 - **run_id**: `{run_id}`
 - **commit**: `{commit}`
-- **checked_at**: `{time.strftime('%Y-%m-%d %H:%M:%SZ', time.gmtime())}`
+- **checked_at**: `{time.strftime("%Y-%m-%d %H:%M:%SZ", time.gmtime())}`
 
 | Finding ID | Classification |
 | :--- | :--- |
@@ -135,7 +141,7 @@ class MekoClient:
         self.api_key = api_key.strip()
         self.datapack_id = datapack_id.strip()
         self.timeout = timeout
-        self._conversation_id: Optional[str] = None
+        self._conversation_id: str | None = None
 
         if not self.api_key:
             raise ValueError("MEKO_API_KEY must not be empty")
@@ -151,7 +157,7 @@ class MekoClient:
             "Accept": "application/json, text/event-stream",
         }
 
-    def _parse_sse(self, raw_text: str) -> Optional[dict]:
+    def _parse_sse(self, raw_text: str) -> dict | None:
         """Extract JSON-RPC payload from text/event-stream response."""
         for line in raw_text.splitlines():
             line = line.strip()
@@ -180,9 +186,15 @@ class MekoClient:
                 timeout=self.timeout,
             )
             resp.raise_for_status()
-            data = self._parse_sse(resp.text)
+            data = (
+                resp.json()
+                if "application/json" in resp.headers.get("Content-Type", "")
+                else self._parse_sse(resp.text)
+            )
             if not data or "result" not in data:
-                raise RuntimeError(f"Unexpected MCP response: {data}")
+                raise RuntimeError("Unexpected MCP response")
+            if data["result"].get("isError"):
+                raise RuntimeError("Meko MCP tool reported an error")
 
             # Check for error wrapped in content text
             content = data["result"].get("content", [])
@@ -192,7 +204,7 @@ class MekoClient:
                     try:
                         parsed_text = json.loads(text_val)
                         if isinstance(parsed_text, dict) and "error" in parsed_text:
-                            raise RuntimeError(f"Meko tool error: {parsed_text}")
+                            raise RuntimeError("Meko tool returned an error")
                         return parsed_text
                     except json.JSONDecodeError:
                         return {"text": text_val}
@@ -218,7 +230,7 @@ class MekoClient:
         )
         conv_id = res.get("id") if isinstance(res, dict) else None
         if not conv_id:
-            raise RuntimeError(f"Failed to create Meko conversation: {res}")
+            raise RuntimeError("Failed to create Meko conversation")
         self._conversation_id = conv_id
         return conv_id
 
@@ -244,7 +256,7 @@ class MekoClient:
         )
         content_hash = res.get("content_hash") if isinstance(res, dict) else None
         if not content_hash:
-            raise RuntimeError(f"artifact_put did not return content_hash: {res}")
+            raise RuntimeError("artifact_put did not return content_hash")
         return content_hash
 
     def upload_knowledgebase_document(
@@ -276,41 +288,49 @@ class MekoClient:
             },
         )
 
-        if prep.get("already_uploaded"):
-            return {"status": "already_uploaded", "filename": filename, "content_hash": doc_hash}
-
         s3_url = prep.get("url")
         fields = prep.get("fields")
         doc_key = prep.get("key")
 
-        if not s3_url or not fields or not doc_key:
-            raise RuntimeError(f"knowledgebase_upload_document missing upload info: {prep}")
+        if not doc_key:
+            raise RuntimeError("knowledgebase_upload_document missing document key")
 
         # Post file to presigned S3 URL
-        files = {"file": (filename, doc_bytes, "text/markdown")}
-        s3_resp = requests.post(s3_url, data=fields, files=files, timeout=self.timeout)
-        if s3_resp.status_code not in (200, 204):
-            raise RuntimeError(f"S3 upload failed with HTTP {s3_resp.status_code}")
+        if not prep.get("already_uploaded"):
+            if not s3_url or not fields:
+                raise RuntimeError("knowledgebase_upload_document missing upload info")
+            files = {"file": (filename, doc_bytes, "text/markdown")}
+            s3_resp = requests.post(s3_url, data=fields, files=files, timeout=self.timeout)
+            if s3_resp.status_code not in (200, 201, 204):
+                raise RuntimeError(f"S3 upload failed with HTTP {s3_resp.status_code}")
 
-        # Poll status once to verify registration
-        time.sleep(1.0)
-        status_resp = self.call_tool(
-            "knowledgebase_document_status",
-            {
-                "document_key": doc_key,
-                "conversation_id": conv_id,
-                "datapack_id": self.datapack_id,
-                "agent_id": "swarmtest:verifier",
-            },
-        )
+        deadline = time.monotonic() + max_poll_seconds
+        while True:
+            status_resp = self.call_tool(
+                "knowledgebase_document_status",
+                {
+                    "document_key": doc_key,
+                    "conversation_id": conv_id,
+                    "datapack_id": self.datapack_id,
+                    "agent_id": "swarmtest:verifier",
+                },
+            )
+            state = status_resp.get("state", status_resp.get("status", "unknown"))
+            if state in {"indexed", "completed", "ready", "success"}:
+                break
+            if state in {"failed", "error"}:
+                raise RuntimeError("Meko document indexing failed")
+            if time.monotonic() >= deadline:
+                raise RuntimeError("Meko document indexing is still pending")
+            time.sleep(0.5)
         return {
             "status": "uploaded",
             "document_key": doc_key,
             "content_hash": doc_hash,
-            "indexing_state": status_resp.get("state", "unknown"),
+            "indexing_state": state,
         }
 
-    def publish_finding(self, finding: Finding, commit: str = "HEAD") -> Optional[str]:
+    def publish_finding(self, finding: Finding, commit: str = "HEAD") -> str | None:
         """
         Store replay sequence as artifact and upload finding document to Meko.
         Returns the replay content_hash.
@@ -337,4 +357,3 @@ class MekoClient:
         summary_md = format_run_results_markdown(run_id, results, commit=commit)
         filename = f"run_results_{run_id}.md"
         self.upload_knowledgebase_document(filename, summary_md)
-

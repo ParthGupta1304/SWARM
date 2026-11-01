@@ -32,7 +32,9 @@ from dashboard.reset import cleanup_plan, clear_artifacts
 from detect.contracts import Finding
 from detect.report import write_report
 from detect.store import SQLiteEventStore, export_jsonl
+from memory.publish import FindingsPublishError, publish_run_findings
 from swarm.bazaar import make_hooks, make_verifier
+from swarm.budget import BudgetAccountingError
 from swarm.provider import credential
 from swarm.runtime import RunCoordinator
 
@@ -190,6 +192,7 @@ def create_app(config, environment, output: Path, results: Path | None = None):
         (directory / "run.json").write_text(
             json.dumps({k: v for k, v in vars(result).items() if k != "findings"}, indent=2)
         )
+        await asyncio.to_thread(publish_run_findings, selected, result.findings, directory)
         return result
 
     def refresh_gate(judge=None):
@@ -278,8 +281,12 @@ def create_app(config, environment, output: Path, results: Path | None = None):
                 refresh_gate(judge)
         except Exception as exc:
             state["error"] = (
-                f"{type(exc).__name__}: run failed; "
-                "check provider configuration, limits and local logs."
+                exc.user_message
+                if isinstance(exc, (BudgetAccountingError, FindingsPublishError))
+                else (
+                    f"{type(exc).__name__}: run failed; "
+                    "check provider configuration, limits and local logs."
+                )
             )
         finally:
             state["coordinator"] = None

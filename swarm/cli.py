@@ -15,8 +15,10 @@ from bench.gate import evaluate_phase1
 from bench.judge import judge_findings
 from bench.metrics import BenchmarkRun, run_benchmark, summarize, write_benchmark
 from bench.review import record_review, valid_reviews
+from detect.contracts import Finding
 from detect.report import write_report
 from detect.store import SQLiteEventStore, export_jsonl
+from memory.publish import publish_run_findings
 from swarm.bazaar import make_hooks
 from swarm.provider import credential, load_config
 from swarm.runtime import RunCoordinator
@@ -25,7 +27,7 @@ from swarm.targets import BazaarEnvironment
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=["run", "benchmark", "serve", "review"])
+    parser.add_argument("command", choices=["run", "benchmark", "serve", "review", "publish"])
     parser.add_argument("--config", type=Path, default=Path("swarmtest.yaml"))
     parser.add_argument("--output", type=Path, default=Path("artifacts/swarm"))
     parser.add_argument("--events-db", type=Path)
@@ -48,6 +50,21 @@ def main():
         serve()
         return
     config = load_config(args.config)
+    if args.command == "publish":
+        reports = (
+            [args.output / "report.json"]
+            if (args.output / "report.json").exists()
+            else sorted(args.output.glob("*/report.json"))
+        )
+        if not reports:
+            parser.error("No saved run reports found under --output")
+        for report in reports:
+            findings = [
+                Finding.model_validate(f) for f in json.loads(report.read_text())["findings"]
+            ]
+            receipt = publish_run_findings(config, findings, report.parent)
+            print(json.dumps({"run": report.parent.name, "publishing": receipt["status"]}))
+        return
     truth = json.loads(
         (
             args.truth or Path(__file__).resolve().parent.parent / "configs/bazaar-truth.json"
@@ -218,6 +235,7 @@ def main():
             (directory / "run.json").write_text(
                 json.dumps({k: v for k, v in vars(result).items() if k != "findings"}, indent=2)
             )
+            publish_run_findings(selected, result.findings, directory)
             if result.stopped:
                 raise RuntimeError("Stopped runs are not scored")
             value = result.benchmark_run()

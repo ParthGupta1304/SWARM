@@ -20,7 +20,7 @@ def main():
     parser.add_argument(
         "--config",
         type=Path,
-        default=Path(__file__).resolve().parent.parent / "configs" / "bazaar.yaml",
+        default=Path(__file__).resolve().parent.parent / "swarmtest.yaml",
     )
     parser.add_argument("--port", type=int, default=8080)
     parser.add_argument("--host", choices=["127.0.0.1", "0.0.0.0"], default="127.0.0.1")

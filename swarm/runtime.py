@@ -39,6 +39,15 @@ class Persona(BaseModel):
     fixed_arguments: dict[str, str | int | bool] = Field(default_factory=dict)
 
 
+class FindingsStoreConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    type: Literal["local", "meko"] = "local"
+    mcp_url: str = "https://mcp.mekodata.ai/mcp"
+    api_key_env: str = Field(default="MEKO_API_KEY", min_length=1)
+    datapack_id_env: str = Field(default="MEKO_DATAPACK_ID", min_length=1)
+    fallback: Literal["local"] = "local"
+
+
 class RunConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
     project: str = Field(default="bazaar", min_length=1)
@@ -65,6 +74,7 @@ class RunConfig(BaseModel):
     output_cost_per_million: float = Field(ge=0)
     cached_input_cost_per_million: float | None = Field(default=None, ge=0)
     context: ContextPolicy = Field(default_factory=ContextPolicy)
+    findings_store: FindingsStoreConfig = Field(default_factory=FindingsStoreConfig)
     personas: list[Persona] = Field(min_length=1)
 
     @model_validator(mode="after")
@@ -306,7 +316,9 @@ class RunCoordinator:
                         raise RuntimeError("model decision failed") from errors[0]
                     await publish("running", round_num)
                     if budget.uncertain:
-                        raise BudgetAccountingError("run aborted: model usage could not be bounded")
+                        raise budget.failure or BudgetAccountingError(
+                            "run aborted: model usage could not be bounded"
+                        )
                     ready = [
                         (agent, decision)
                         for agent, decision in zip(active, decisions, strict=True)

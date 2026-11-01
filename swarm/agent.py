@@ -15,7 +15,7 @@ from jsonschema.exceptions import ValidationError
 
 from adapters.openapi import OpenAPIAdapter
 from detect.contracts import Event, Request
-from swarm.budget import BudgetAccountingError, BudgetExhausted, TokenBudget
+from swarm.budget import BudgetAccountingError, BudgetExhausted, ProviderCallError, TokenBudget
 from swarm.context import CompactContext, ContextPolicy, bounded_value, stable_json
 from swarm.events import EventSlot, RunEvents, default_events
 from swarm.provider import completion_with_headers, is_groq_cache
@@ -115,6 +115,7 @@ class AgentLoop:
         self.client = openai.OpenAI(
             base_url=provider_base_url, api_key=api_key or "ollama", max_retries=0, timeout=30
         )
+        self.json_actions = is_groq_cache(provider_base_url, model)
         self.events = events or default_events(run_id, seed)
         if (self.events.run_id, self.events.seed) != (run_id, seed):
             raise ValueError("actor and event context run/seed differ")
@@ -138,13 +139,21 @@ class AgentLoop:
         self.cancelled = None
 
     def _system_prompt(self) -> str:
-        return (
+        prompt = (
             "Test this authorized local Bazaar sandbox; account setup is complete. "
             "Call exactly ONE tool per turn. Use observed results; omitted data is unknown. "
             "Explore beyond known findings. "
             'Without native tools return {"tool":"name","arguments":{}}. '
             f"Role: {self.role}."
         )
+        if self.json_actions:
+            prompt += (
+                ' Return exactly one JSON object: {"tool":"name","arguments":{}}. '
+                "Do not include explanations, reasoning, or Markdown fences. "
+                "Choose only an available action and follow its argument schema. "
+                "Available actions (JSON Schema): " + stable_json(self.tool_defs)
+            )
+        return prompt
 
     def messages(self) -> list[dict]:
         return [
@@ -217,8 +226,10 @@ class AgentLoop:
     def _model_call(self, messages: list[dict], *, summary: bool = False):
         if self.budget is None:
             raise RuntimeError("a token budget is required before a model call")
-        tools = None if summary else self.tool_defs
-        reservation, cap = self.budget.reserve(messages, tools, 120 if summary else 512)
+        json_action = self.json_actions and not summary
+        tools = None if summary or json_action else self.tool_defs
+        output_cap = 120 if summary else (2048 if json_action else 512)
+        reservation, cap = self.budget.reserve(messages, tools, output_cap)
         size = len(stable_json({"messages": messages, "tools": tools}).encode())
         self.prompt_bytes = size
         self.max_prompt_bytes = max(size, self.max_prompt_bytes)
@@ -228,6 +239,10 @@ class AgentLoop:
         groq_cache = is_groq_cache(self.client.base_url, self.model)
         if groq_cache:
             kwargs["extra_body"] = {"reasoning_effort": "low"}
+            if json_action:
+                # Groq JSON mode can reject generated output with HTTP 400 and
+                # omit usage. Validate the returned text locally instead.
+                kwargs["extra_body"]["include_reasoning"] = False
             if tools:
                 kwargs["extra_body"]["disable_tool_validation"] = True
         if self.pacer:
@@ -246,7 +261,6 @@ class AgentLoop:
         try:
             response, headers = completion_with_headers(self.client, kwargs)
         except Exception as exc:
-            self.budget.fail(reservation)
             if self.pacer:
                 self.pacer.observe(getattr(getattr(exc, "response", None), "headers", {}))
             body = getattr(exc, "body", {})
@@ -256,12 +270,9 @@ class AgentLoop:
                 if isinstance(details, dict)
                 else "unspecified"
             )
-            code = code if code.replace("_", "").isalnum() else "unspecified"
-            raise BudgetAccountingError(
-                f"Provider {type(exc).__name__} "
-                f"HTTP {getattr(exc, 'status_code', 'unknown')} ({code}); "
-                "usage is unknown"
-            ) from None
+            error = ProviderCallError(getattr(exc, "status_code", None), code)
+            self.budget.fail(reservation, error)
+            raise error from None
         tokens = self.budget.finish(reservation, response.usage)
         if self.pacer:
             from swarm.budget import usage_counts
@@ -359,6 +370,9 @@ class AgentLoop:
     def _extract_action(self, response) -> tuple[str, dict] | None:
         message = response.choices[0].message
         self.total_tool_calls += 1
+        if response.choices[0].finish_reason == "length":
+            self.invalid_tool_calls += 1
+            return None
         action = None
         if message.tool_calls:
             if len(message.tool_calls) == 1:
@@ -368,8 +382,14 @@ class AgentLoop:
                 except (json.JSONDecodeError, TypeError):
                     pass
         elif message.content:
-            data = _extract_json(message.content)
-            if data:
+            if self.json_actions:
+                try:
+                    data = json.loads(message.content)
+                except (json.JSONDecodeError, TypeError):
+                    data = None
+            else:
+                data = _extract_json(message.content)
+            if isinstance(data, dict):
                 action = data.get("tool"), data.get("arguments", {})
                 self.used_fallback = True
         if (

@@ -269,7 +269,9 @@ class EfficiencyChecks(unittest.TestCase):
         self.assertAlmostEqual(actor.budget.cost_usd, 0.0000165)
         self.assertEqual(actor.budget.summary()["cache_reporting"], "reported")
         self.assertEqual(captured[0]["reasoning_effort"], "low")
-        self.assertFalse(captured[0]["parallel_tool_calls"])
+        self.assertNotIn("tools", captured[0])
+        self.assertNotIn("response_format", captured[0])
+        self.assertFalse(captured[0]["include_reasoning"])
 
     def test_invalid_decisions_stop_after_three_and_cannot_execute(self):
         actor = self.actor()

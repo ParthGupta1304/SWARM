@@ -9,7 +9,7 @@ from pathlib import Path
 from threading import Lock
 
 import yaml
-from dotenv import load_dotenv
+from dotenv import dotenv_values, find_dotenv, load_dotenv
 
 
 def load_config(path):
@@ -33,10 +33,18 @@ def load_config(path):
 
 
 def credential(config):
+    # Read local credentials at run admission, without mutating process-wide env.
+    # load_dotenv() at startup otherwise leaves a rotated key cached forever.
+    path = find_dotenv()
+    local = dotenv_values(path) if path else {}
+
+    def current(name):
+        return local.get(name) if name in local else os.getenv(name)
+
     if "api.groq.com" in config.provider_base_url:
-        key = os.getenv("GROQ_API_KEY") or os.getenv(config.api_key_env)
+        key = current("GROQ_API_KEY") or current(config.api_key_env)
     else:
-        key = os.getenv(config.api_key_env)
+        key = current(config.api_key_env)
     if not key and config.provider_base_url.startswith(("http://localhost:", "http://127.0.0.1:")):
         return "local"
     if not key:

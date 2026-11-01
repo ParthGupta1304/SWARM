@@ -112,3 +112,13 @@ A real Groq A/B comparison remains necessary to measure those effects.
 
 The sanitized result is in `docs/results/ai-efficiency-summary.json`; the detailed
 local measurement is `artifacts/ai-efficiency/prompt-size-comparison.json`.
+
+## Provider request reliability
+
+Current Groq GPT-OSS requests use text completions prompted for JSON actions,
+with local parsing and schema validation to avoid provider-side tool/JSON
+formatting failures. New runs read the current
+local .env key. Safe error diagnostics distinguish request, authentication, quota
+and genuine accounting failures; missing usage still stops the run. See
+[provider error handling](provider-errors.md). Historical measurements above
+predate the request-format change; no new discovery benchmark is claimed.
