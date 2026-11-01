@@ -1,14 +1,14 @@
-# Swarmtest
+# SWARM
 
 ### Test what happens when your users collide.
 
-**Swarmtest puts goal-driven AI users into the same running application, exercises their interactions, and turns observed failures into independently replayed evidence.**
+**SWARM puts goal-driven AI users into the same running application, exercises their interactions, and turns observed failures into independently replayed evidence.**
 
-A checkout can work for one buyer and fail when two buyers arrive together. A coupon can behave correctly in one session and be redeemed twice across two sessions. A block can stop direct messages while another contact path stays open. Shared state connects these journeys, and Swarmtest explores how their combined behavior can break a business rule.
+A checkout can work for one buyer and fail when two buyers arrive together. A coupon can behave correctly in one session and be redeemed twice across two sessions. A block can stop direct messages while another contact path stays open. Shared state connects these journeys, and SWARM explores how their combined behavior can break a business rule.
 
 [Results](#results-at-a-glance) · [How it works](#how-it-works) · [Run locally](#run-locally) · [Agents and prompts](#agents-and-prompts) · [Evaluation](#evaluation-details) · [Case studies](#three-verified-bazaar-case-studies) · [Limitations](#scope-limitations-and-deployment)
 
-![Swarmtest home page](docs/images/swarm-home.png)
+![SWARM home page](docs/images/swarm-home.png)
 
 > **Submission scope:** a working Phase 1 prototype, demonstrated with **Bazaar**, our multi-user marketplace demo. The recorded real-model evaluation found three distinct interaction failures that the isolated-agent baseline did not find. This is a controlled demo benchmark, not a production security audit or a claim of exhaustive discovery.
 
@@ -59,21 +59,21 @@ sequenceDiagram
 
 The pattern extends beyond simultaneous purchases. A refund and a dispute can overlap. Two sessions can compete over one account-level limit. A user blocked in one workflow can try another endpoint.
 
-Fixed scripts stay valuable, but every new role, resource and action order multiplies the combinations to anticipate. A single AI tester cannot show interaction-dependent behavior if each actor gets a separate application snapshot. Swarmtest combines adaptive exploration with controlled concurrency, then checks outcomes against explicit correctness rules.
+Fixed scripts stay valuable, but every new role, resource and action order multiplies the combinations to anticipate. A single AI tester cannot show interaction-dependent behavior if each actor gets a separate application snapshot. SWARM combines adaptive exploration with controlled concurrency, then checks outcomes against explicit correctness rules.
 
 ### Why this is a real engineering problem
 
-| Evidence | What was reported | Relevance to Swarmtest |
+| Evidence | What was reported | Relevance to SWARM |
 | --- | --- | --- |
-| **Knight Capital, 2012** | The SEC reported a defective automated router sent more than 4 million orders while handling 212 customer orders in 45 minutes, contributing to losses above $460 million. | Failed controls can amplify software mistakes quickly. This was a deployment/control failure; we do not claim Swarmtest would have prevented it. [SEC](https://www.sec.gov/newsroom/press-releases/2013-222) |
-| **PortSwigger web-race research, 2023** | James Kettle documented exploitable intermediate request states, including a GitLab case, and a single-packet technique that synchronizes 20–30 requests to arrive within about a millisecond. | Request timing and hidden state transitions deserve explicit testing. Swarmtest uses application-level barriers, not packet-level timing. [Research](https://portswigger.net/research/smashing-the-state-machine) |
+| **Knight Capital, 2012** | The SEC reported a defective automated router sent more than 4 million orders while handling 212 customer orders in 45 minutes, contributing to losses above $460 million. | Failed controls can amplify software mistakes quickly. This was a deployment/control failure; we do not claim SWARM would have prevented it. [SEC](https://www.sec.gov/newsroom/press-releases/2013-222) |
+| **PortSwigger web-race research, 2023** | James Kettle documented exploitable intermediate request states, including a GitLab case, and a single-packet technique that synchronizes 20–30 requests to arrive within about a millisecond. | Request timing and hidden state transitions deserve explicit testing. SWARM uses application-level barriers, not packet-level timing. [Research](https://portswigger.net/research/smashing-the-state-machine) |
 | **ASPLOS concurrency study, 2008** | 105 concurrency bugs across MySQL, Apache, Mozilla and OpenOffice; about 92% could be triggered by enforcing orders among at most four memory accesses. | Small, carefully arranged interactions can expose serious failures. A memory-level study; it does not validate our HTTP implementation. [Study](https://www.microsoft.com/en-us/research/publication/learning-from-mistakes-a-comprehensive-study-on-real-world-concurrency-bug-characteristics/) |
 
-These sources support testing shared-state behavior and action ordering. **The evidence for Swarmtest itself is the measured Bazaar experiment.**
+These sources support testing shared-state behavior and action ordering. **The evidence for SWARM itself is the measured Bazaar experiment.**
 
 ## How it works
 
-Swarmtest runs a small community of normal and adversarial personas against a real application.
+SWARM runs a small community of normal and adversarial personas against a real application.
 
 - **Objectives drive exploration.** Buyers buy, bargain hunters chase savings, fraud-oriented sessions chase compensation, others probe reputation and blocked-contact behavior.
 - **Actors share a real target,** so their actions affect one another's inventory, orders and account state.
@@ -191,7 +191,7 @@ Only reproduced findings are reported as verified. Anything that fails replay or
 
 Start/Stop, a confirmed benchmark run, workspace reset, saved-run selection, condition comparisons, agent scores, round activity, usage and report downloads.
 
-![Swarmtest dashboard displaying the saved real-model benchmark](docs/images/swarm-dashboard.png)
+![SWARM dashboard displaying the saved real-model benchmark](docs/images/swarm-dashboard.png)
 
 *Current UI showing the saved three-seed real-model benchmark. Historical evaluation values are labelled separately from a new workspace run.*
 
@@ -228,8 +228,8 @@ Set these values in `.env`:
 
 ```dotenv
 GROQ_API_KEY=your_key_here
-SWARMTEST_PROVIDER_URL=https://api.groq.com/openai/v1
-SWARMTEST_MODEL=openai/gpt-oss-120b
+SWARM_PROVIDER_URL=https://api.groq.com/openai/v1
+SWARM_MODEL=openai/gpt-oss-120b
 ```
 
 Start both frontends and the backend with one launcher:
@@ -240,7 +240,7 @@ uv run --no-sync python -m swarm.demo --output artifacts/phase1
 
 | Page | Local address |
 | --- | --- |
-| Swarmtest home | http://127.0.0.1:8080/ |
+| SWARM home | http://127.0.0.1:8080/ |
 | Run dashboard | http://127.0.0.1:8080/dashboard |
 | Bazaar marketplace | http://127.0.0.1:8080/bazaar/ |
 | Fallback console | http://127.0.0.1:8080/console |
@@ -379,7 +379,7 @@ From the real-model experiment, with replay and actor-removal checks preserved i
 | **E2: coupon redeemed twice** | One account recorded **2 redemptions** of the same coupon. | Two sessions on that account call the coupon endpoint concurrently. | Independent replay confirms the duplicate. Both sessions are necessary. Found in all three swarm seeds. |
 | **E7: contact after blocking** | A blocked buyer successfully posts an item question to the seller's listing. | The seller blocks the buyer; the buyer then submits the question. | Replay confirms the policy violation. Removing either actor clears it. Accepted by human review after the judge disagreed. |
 
-E7 is an ordered cross-user workflow, not a simultaneous-request race. Swarmtest's interaction model covers both shared-state races and workflows where one user's action changes what another user may do.
+E7 is an ordered cross-user workflow, not a simultaneous-request race. SWARM's interaction model covers both shared-state races and workflows where one user's action changes what another user may do.
 
 ### How each reduced reproduction plays out
 
@@ -454,15 +454,15 @@ The default exploration dollar cap is **$0.50 per run**, adjustable in YAML. An 
 
 ```sh
 # Current six-round configuration.
-uv run --no-sync swarmtest run --config swarmtest.yaml --condition swarm
+uv run --no-sync SWARM run --config SWARM.yaml --condition swarm
 
 # Three-round comparison: two conditions, three held-out seeds.
-uv run --no-sync swarmtest benchmark \
+uv run --no-sync SWARM benchmark \
   --config configs/bazaar-benchmark.yaml \
   --output artifacts/evaluation
 
 # Resume only the same experiment after an interruption.
-uv run --no-sync swarmtest benchmark \
+uv run --no-sync SWARM benchmark \
   --config configs/bazaar-benchmark.yaml \
   --output artifacts/evaluation --resume
 
@@ -545,4 +545,4 @@ More detail: [frontend usage](docs/frontend.md) · [context efficiency](docs/ai-
 
 ---
 
-**Swarmtest's demonstrated result:** a small group of AI sessions exposed three interaction failures in Bazaar that the matched isolated baseline missed, with fresh-target replays and actor-removal evidence behind each claim.
+**SWARM's demonstrated result:** a small group of AI sessions exposed three interaction failures in Bazaar that the matched isolated baseline missed, with fresh-target replays and actor-removal evidence behind each claim.
