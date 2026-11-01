@@ -113,9 +113,9 @@ async function main() {
   await waitIdle();
   assert.equal((await state()).error, null);
   await page.reload({ waitUntil: "domcontentloaded" });
-  await expect(page.getByText(/8 of 8 distinct bugs verified/)).toBeVisible({
-    timeout: 20000,
-  });
+  await expect(page.getByRole("link", { name: "Download JSON", exact: true })).toBeVisible({timeout: 20000});
+  await expect(page.getByText(/distinct bugs verified/)).toHaveCount(0);
+  await expect(page.locator('a[href$=".pdf"]')).toHaveCount(0);
   await page
     .getByRole("button", { name: "Inspect recorded actions", exact: true })
     .click();
@@ -151,7 +151,7 @@ async function main() {
   await page.getByRole("button", { name: "Condition C", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Phase 2 · planned", exact: true }),
-  ).toBeDisabled();
+  ).toHaveCount(0);
   for (const width of [390, 768, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
     assert(

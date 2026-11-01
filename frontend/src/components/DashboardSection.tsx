@@ -5,13 +5,12 @@ import {
   precision,
   money,
   percent,
-  foundIds,
   roleSummary,
   repeatability,
 } from "../lib/metrics";
 import { LiveToolbar, ComparisonChart, RunPanels } from "../lib/RunPanels";
 
-type ConditionKey = "cond-b" | "cond-c" | "phase-2";
+type ConditionKey = "cond-b" | "cond-c";
 
 const CONDITION_DESCRIPTIONS: Record<
   ConditionKey,
@@ -25,11 +24,6 @@ const CONDITION_DESCRIPTIONS: Record<
     title: "Condition C · Swarmtest full interacting swarm",
     subtitle: "Bazaar target · 6 persona roles · async rounds + barrier bursts",
   },
-  "phase-2": {
-    title: "Phase 2 · Meko Datapack memory & regression run",
-    subtitle:
-      "Recalls saved checks over MCP: fixed, still failing, or regressed",
-  },
 };
 
 export const DashboardSection: React.FC<{ compact?: boolean }> = ({
@@ -39,10 +33,8 @@ export const DashboardSection: React.FC<{ compact?: boolean }> = ({
   const activeCondition: ConditionKey =
     c.condition === "isolated" ? "cond-b" : "cond-c";
   const setActiveCondition = (key: ConditionKey) => {
-    if (key !== "phase-2")
-      c.setCondition(key === "cond-b" ? "isolated" : "swarm");
+    c.setCondition(key === "cond-b" ? "isolated" : "swarm");
   };
-  const ids = foundIds(c.findings);
   const conditionMeta = CONDITION_DESCRIPTIONS[activeCondition];
   const m = c.evaluationBenchmark?.conditions[c.condition]?.metrics;
   const DASHBOARD_KPI_SLOTS = [
@@ -55,7 +47,7 @@ export const DashboardSection: React.FC<{ compact?: boolean }> = ({
           : m?.emergent_recall?.mean,
       ),
       sublabel: c.run
-        ? "Distinct interaction bugs / planted interaction bugs"
+        ? "Emergent bugs verified in this run, when measured"
         : "Three-seed benchmark mean, when measured",
     },
     {
@@ -172,15 +164,6 @@ export const DashboardSection: React.FC<{ compact?: boolean }> = ({
                 >
                   Condition C
                 </button>
-                <button
-                  type="button"
-                  disabled
-                  title="Phase 2 memory and regression are planned"
-                  aria-pressed={false}
-                  className="h-9 rounded-full px-4 text-[13px] font-medium text-muted-foreground whitespace-nowrap"
-                >
-                  Phase 2 · planned
-                </button>
               </div>
             </div>
 
@@ -222,13 +205,6 @@ export const DashboardSection: React.FC<{ compact?: boolean }> = ({
                   <h4 className="text-[15.5px] font-semibold text-ink">
                     Benchmark recall
                   </h4>
-                  <p className="mt-3 text-[13px] text-muted-foreground">
-                    {c.run
-                      ? `${ids.size} of ${c.config?.bugs.length || 8} distinct bugs verified · ${c.findings.filter((f) => f.verified && f.type === "emergent").reduce((a, f) => a.add(f.mapped_bug_id || f.id), new Set()).size} emergent · ${c.findings.filter((f) => f.verified && f.type === "single-user").reduce((a, f) => a.add(f.mapped_bug_id || f.id), new Set()).size} single-user`
-                      : c.historicalEvaluation
-                        ? "Historical three-seed averages. Select a run to inspect current evidence."
-                        : "Choose a measured run or start checking."}
-                  </p>
                   <ComparisonChart />
                 </div>
               </div>

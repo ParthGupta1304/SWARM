@@ -246,30 +246,6 @@ export const CtaAndFooter: React.FC<CtaAndFooterProps> = ({
                 adversaries inside a real running application and proves what it
                 found with deterministic replay.
               </p>
-              <div className="mt-7 flex items-center gap-3">
-                <a
-                  href="/assets/aistudio/Swarmtest_PRD_Hackathon_Build__1__292fedf8.pdf"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex h-10 items-center gap-2 rounded-full bg-white px-4 text-[13.5px] font-medium text-ink shadow-[0_8px_20px_-14px_rgba(20,23,15,0.4)] transition-[background-color,transform] hover:-translate-y-0.5 hover:bg-sage focus-visible:ring-2 focus-visible:ring-moss focus-visible:outline-none whitespace-nowrap"
-                >
-                  Read PRD PDF
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    className="size-3.5"
-                    aria-hidden="true"
-                  >
-                    <path d="M7 7h10v10" />
-                    <path d="M7 17 17 7" />
-                  </svg>
-                </a>
-              </div>
             </div>
 
             <nav aria-label="Product">
@@ -299,16 +275,6 @@ export const CtaAndFooter: React.FC<CtaAndFooterProps> = ({
                   >
                     swarmtest.yaml CLI
                   </button>
-                </li>
-                <li>
-                  <a
-                    className="inline-flex items-center gap-1 rounded-md text-[16px] text-ink/70 transition-colors hover:text-moss"
-                    href="/assets/aistudio/Swarmtest_PRD_Hackathon_Build__1__292fedf8.pdf"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    PRD Specification
-                  </a>
                 </li>
               </ul>
             </nav>
