@@ -37,6 +37,9 @@ can reduce coverage. Benchmarks use three rounds in both conditions across
 three held-out seeds, with separate budgeted judging overhead. Phase 2 is marked
 planned and disabled.
 
+The landing evaluation section shows only reviewed precision, seed repeatability
+and estimated run cost, without the former category strip.
+
 When no run or current benchmark is selected, evaluation cards show the clearly
 labelled historical real-Groq benchmark from `configs/phase1-evaluation.json`.
 It is a sanitized summary recomputed from six canonical runs and evidence-bound

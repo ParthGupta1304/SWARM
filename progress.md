@@ -1,3 +1,14 @@
+# Evaluation presentation — 2026-11-01
+
+- Removed the marketplaces/booking/fintech/community strip. The evaluation
+  benchmark now has exactly three responsive cards: reviewed precision,
+  seed repeatability and estimated run cost, with actual values and definitions.
+- Production build and ten frontend checks pass. Browser checks confirm all
+  three values, removed content and no overflow at 390/768/1440px. No AI run
+  or workspace reset was performed.
+
+---
+
 # Actual evaluation values — 2026-11-01
 
 - Evaluation cards now explain their meanings and display an explicitly labelled

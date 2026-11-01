@@ -1,16 +1,7 @@
 import React from "react";
 import { useConsole } from "../lib/console";
-import {
-  recall,
-  precision,
-  percent,
-  duration,
-  repeatability,
-} from "../lib/metrics";
-import {
-  BENCHMARK_TICKET_SLOTS,
-  TARGET_CATEGORIES,
-} from "../utils/swarmConfig";
+import { precision, percent, money, repeatability } from "../lib/metrics";
+import { BENCHMARK_TICKET_SLOTS } from "../utils/swarmConfig";
 
 const TOP_LEFT_OUTLINE_TILES = [
   { col: 1, row: 0, delay: "0s", dur: "5s" },
@@ -37,26 +28,8 @@ const TOP_RIGHT_OUTLINE_TILES = [
 export const ProofSection: React.FC = () => {
   const c = useConsole();
   const m = c.evaluationBenchmark?.conditions[c.condition]?.metrics;
-  const verified = new Set(
-    c.findings.filter((f) => f.verified).map((f) => f.id),
-  );
-  const times = Object.entries(c.run?.finding_times_s || {})
-    .filter(([id]) => verified.has(id))
-    .map(([, time]) => time);
   const values = [
-    percent(
-      c.run
-        ? recall(c.findings, c.config?.bugs || [], "emergent")
-        : m?.emergent_recall?.mean,
-    ),
     percent(c.run ? precision(c.run) : m?.precision_after_verifier?.mean),
-    duration(
-      c.run
-        ? times.length
-          ? Math.min(...times)
-          : undefined
-        : (m?.time_to_first_find_s?.mean ?? undefined),
-    ),
     percent(
       repeatability(
         c.evaluationBenchmark?.runs.filter(
@@ -64,14 +37,12 @@ export const ProofSection: React.FC = () => {
         ) || [],
       ),
     ),
+    money(c.run?.cost_usd ?? m?.cost_usd?.mean ?? undefined),
   ];
   const explanations = [
-    "The share of planted interaction bugs found. Benchmark values average three runs; higher means better coverage.",
     "The share of verified findings supported by a judge or human review. High precision means fewer false alarms, not that every bug was found.",
-    c.run
-      ? "Time from run start to its first verified finding. Lower is faster."
-      : "Average time from run start to the first verified finding, across runs with a finding. Lower is faster.",
     "The share of discovered bug types found in all three seeds. Higher means the same bugs are found more consistently.",
+    "Estimated exploration cost per run, based on reported tokens and configured provider rates. Benchmark values average three runs and exclude judging costs.",
   ];
   return (
     <section
@@ -160,7 +131,7 @@ export const ProofSection: React.FC = () => {
         </p>
       </div>
 
-      {/* 4 Ticket Cards + Pine Tree Backdrop + Target Categories Bar */}
+      {/* Three evaluation cards and pine tree backdrop */}
       <div className="group/stats relative mx-auto mt-14 w-full max-w-[1100px] px-5 sm:mt-20 sm:px-8 sm:pb-[calc(min(72vw,540px)*0.7)]">
         {/* Pine Tree Image */}
         <div
@@ -175,8 +146,8 @@ export const ProofSection: React.FC = () => {
           />
         </div>
 
-        {/* Four meadow tickets — selected run measurements */}
-        <ul className="relative z-20 grid grid-cols-2 gap-3.5 sm:gap-5 lg:grid-cols-4">
+        {/* Three meadow tickets — selected run measurements */}
+        <ul className="relative z-20 grid grid-cols-1 gap-3.5 sm:grid-cols-3 sm:gap-5">
           {BENCHMARK_TICKET_SLOTS.map((slot, idx) => (
             <li
               key={slot.id}
@@ -189,7 +160,7 @@ export const ProofSection: React.FC = () => {
                 style={{ animationDelay: `${idx * 110}ms` }}
               />
               <div
-                className="relative z-20 flex h-full flex-col justify-between gap-6 px-6 py-6 sm:px-9 sm:py-8 motion-safe:animate-rise"
+                className="relative z-20 flex h-full flex-col justify-between gap-6 px-6 py-6 sm:py-8 lg:px-8 motion-safe:animate-rise"
                 style={{ animationDelay: `${idx * 110}ms` }}
               >
                 <p className="text-[14px] leading-snug font-medium text-ink sm:text-[15px]">
@@ -209,34 +180,6 @@ export const ProofSection: React.FC = () => {
             </li>
           ))}
         </ul>
-
-        {/* Frosted 4-Column Target Categories Bar (Marketplaces, Booking, Fintech, Community) */}
-        <div className="relative z-30 mt-5 overflow-hidden rounded-[30px] border border-white/90 bg-white/65 shadow-[0_24px_60px_-34px_rgba(20,23,15,0.45)] backdrop-blur-2xl sm:rounded-[34px]">
-          <ul className="flex flex-wrap items-stretch justify-center text-ink">
-            {TARGET_CATEGORIES.map((cat, idx) => (
-              <li
-                key={cat}
-                className="flex h-[92px] basis-1/2 items-center justify-center px-4 lg:h-[124px] lg:flex-1 lg:basis-0 lg:border-l lg:border-black/[0.06] lg:first:border-l-0"
-              >
-                <span className="flex items-center gap-2">
-                  <span
-                    className={`font-heading text-[24px] leading-none tracking-[-0.03em] text-ink/55 sm:text-[28px] ${
-                      idx === 0
-                        ? "font-bold"
-                        : idx === 1
-                          ? "font-medium"
-                          : idx === 2
-                            ? "font-semibold italic"
-                            : "font-semibold"
-                    }`}
-                  >
-                    {cat}
-                  </span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
       </div>
     </section>
   );

@@ -200,27 +200,21 @@ export const PLANTED_BUGS: PlantedBugSpec[] = [
  */
 export const BENCHMARK_TICKET_SLOTS: BlankMetricSlot[] = [
   {
-    id: "emergent-recall",
-    label: "Emergent-bug recall",
-    sublabel: "Multi-user failures vs. isolated baseline",
-    value: "",
-  },
-  {
     id: "verified-precision",
     label: "Reviewed precision",
-    sublabel: "Before and after deterministic replay",
-    value: "",
-  },
-  {
-    id: "time-to-first-find",
-    label: "Time to first find",
-    sublabel: "Elapsed time across held-out seeds",
+    sublabel: "Supported findings after deterministic replay",
     value: "",
   },
   {
     id: "repeatability",
     label: "Seed repeatability",
     sublabel: "Share of discovered bug types found in all three seeds",
+    value: "",
+  },
+  {
+    id: "estimated-run-cost",
+    label: "Estimated run cost",
+    sublabel: "Average exploration cost, excluding judging",
     value: "",
   },
 ];
