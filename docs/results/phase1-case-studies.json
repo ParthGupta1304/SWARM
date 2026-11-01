@@ -1,0 +1,386 @@
+{
+  "source": "real-model",
+  "experiment": "Historical controlled Bazaar benchmark, three rounds per actor, seeds 11/22/33",
+  "source_measured_runs_sha256": "d4e130b0b95e52b4c72c2d8a9c58586c677e5ccacf5af737b3c7906aa36d1b4c",
+  "review_note": "E7 was accepted by the project owner after a disagreement with the evaluation judge. Original judgement and valid review are preserved in the experiment.",
+  "cases": [
+    {
+      "case_id": "E2",
+      "finding_id": "c06b1d33-806d-4b9f-bdce-cc44b4e862a1",
+      "run_id": "270db26c-b06e-4606-bf02-7ae5534c0577",
+      "seed": 11,
+      "title": "One account redeemed the same coupon more than once",
+      "verified": true,
+      "causality": "interaction-required",
+      "involved_agents": [
+        "bargain",
+        "coupon-retry"
+      ],
+      "oracle_triggered": "E2",
+      "oracle_evidence": [
+        {
+          "bug_id": "E2",
+          "user_id": 3,
+          "coupon_id": 1,
+          "redemptions": 2
+        }
+      ],
+      "replay": {
+        "schema_version": 1,
+        "seed": 11,
+        "steps": [
+          {
+            "schema_version": 1,
+            "actions": [
+              {
+                "schema_version": 1,
+                "event_id": "f442ef54-efdc-439a-81f8-416b84307812",
+                "agent_id": "coupon-retry",
+                "request": {
+                  "schema_version": 1,
+                  "method": "POST",
+                  "path": "/api/coupons/apply",
+                  "query": {},
+                  "headers": {
+                    "X-Swarm-Action": "270db26c-b06e-4606-bf02-7ae5534c0577:11"
+                  },
+                  "json_body": {
+                    "user_id": 3,
+                    "code": "SWARM20"
+                  }
+                },
+                "expected_status": null,
+                "acceptable_statuses": [],
+                "bindings": {}
+              },
+              {
+                "schema_version": 1,
+                "event_id": "fab68759-2ede-46dd-99ff-e80318dea8b2",
+                "agent_id": "bargain",
+                "request": {
+                  "schema_version": 1,
+                  "method": "POST",
+                  "path": "/api/coupons/apply",
+                  "query": {},
+                  "headers": {
+                    "X-Swarm-Action": "270db26c-b06e-4606-bf02-7ae5534c0577:13"
+                  },
+                  "json_body": {
+                    "user_id": 3,
+                    "code": "SWARM20"
+                  }
+                },
+                "expected_status": null,
+                "acceptable_statuses": [],
+                "bindings": {}
+              }
+            ]
+          }
+        ]
+      },
+      "successful_attempt": {
+        "schema_version": 1,
+        "status": "verified",
+        "results": [
+          {
+            "schema_version": 1,
+            "event_id": "f442ef54-efdc-439a-81f8-416b84307812",
+            "status_code": 200,
+            "response_body_hash": "09e386bc737d606e729746175c7e2fc997992aee78aabf83150a99913a680073"
+          },
+          {
+            "schema_version": 1,
+            "event_id": "fab68759-2ede-46dd-99ff-e80318dea8b2",
+            "status_code": 200,
+            "response_body_hash": "09e386bc737d606e729746175c7e2fc997992aee78aabf83150a99913a680073"
+          }
+        ],
+        "error": null
+      },
+      "actor_removal_checks": [
+        {
+          "removed_actor": "bargain",
+          "status": "not_reproduced"
+        },
+        {
+          "removed_actor": "coupon-retry",
+          "status": "not_reproduced"
+        }
+      ]
+    },
+    {
+      "case_id": "E1",
+      "finding_id": "27fac605-c40f-4601-b173-193c467451cb",
+      "run_id": "270db26c-b06e-4606-bf02-7ae5534c0577",
+      "seed": 11,
+      "title": "Units sold exceed initial inventory",
+      "verified": true,
+      "causality": "interaction-required",
+      "involved_agents": [
+        "fraud",
+        "impatient"
+      ],
+      "oracle_triggered": "E1",
+      "oracle_evidence": [
+        {
+          "bug_id": "E1",
+          "item_id": 1,
+          "sold": 2,
+          "initial_inventory": 1
+        }
+      ],
+      "replay": {
+        "schema_version": 1,
+        "seed": 11,
+        "steps": [
+          {
+            "schema_version": 1,
+            "actions": [
+              {
+                "schema_version": 1,
+                "event_id": "a1feb2af-f89c-4fe2-9566-92ffaee18b55",
+                "agent_id": "impatient",
+                "request": {
+                  "schema_version": 1,
+                  "method": "POST",
+                  "path": "/api/cart/items",
+                  "query": {},
+                  "headers": {
+                    "X-Swarm-Action": "270db26c-b06e-4606-bf02-7ae5534c0577:10"
+                  },
+                  "json_body": {
+                    "user_id": 6,
+                    "item_id": 1,
+                    "quantity": 1
+                  }
+                },
+                "expected_status": null,
+                "acceptable_statuses": [],
+                "bindings": {}
+              },
+              {
+                "schema_version": 1,
+                "event_id": "a8fcb7dc-9cf9-41da-9c2e-e2e746811f4a",
+                "agent_id": "fraud",
+                "request": {
+                  "schema_version": 1,
+                  "method": "POST",
+                  "path": "/api/cart/items",
+                  "query": {},
+                  "headers": {
+                    "X-Swarm-Action": "270db26c-b06e-4606-bf02-7ae5534c0577:16"
+                  },
+                  "json_body": {
+                    "user_id": 4,
+                    "item_id": 1,
+                    "quantity": 1
+                  }
+                },
+                "expected_status": null,
+                "acceptable_statuses": [],
+                "bindings": {}
+              }
+            ]
+          },
+          {
+            "schema_version": 1,
+            "actions": [
+              {
+                "schema_version": 1,
+                "event_id": "a3fcb947-f6db-48f2-abd3-1082fde43852",
+                "agent_id": "impatient",
+                "request": {
+                  "schema_version": 1,
+                  "method": "POST",
+                  "path": "/api/checkout",
+                  "query": {},
+                  "headers": {
+                    "X-Swarm-Action": "270db26c-b06e-4606-bf02-7ae5534c0577:20"
+                  },
+                  "json_body": {
+                    "user_id": 6,
+                    "race_delay_ms": 0
+                  }
+                },
+                "expected_status": null,
+                "acceptable_statuses": [],
+                "bindings": {}
+              },
+              {
+                "schema_version": 1,
+                "event_id": "3106b8e2-27d9-4694-9758-fc7e1308efbb",
+                "agent_id": "fraud",
+                "request": {
+                  "schema_version": 1,
+                  "method": "POST",
+                  "path": "/api/checkout",
+                  "query": {},
+                  "headers": {
+                    "X-Swarm-Action": "270db26c-b06e-4606-bf02-7ae5534c0577:26"
+                  },
+                  "json_body": {
+                    "user_id": 4,
+                    "race_delay_ms": 100
+                  }
+                },
+                "expected_status": null,
+                "acceptable_statuses": [],
+                "bindings": {}
+              }
+            ]
+          }
+        ]
+      },
+      "successful_attempt": {
+        "schema_version": 1,
+        "status": "verified",
+        "results": [
+          {
+            "schema_version": 1,
+            "event_id": "a1feb2af-f89c-4fe2-9566-92ffaee18b55",
+            "status_code": 200,
+            "response_body_hash": "0cc5f40e0bb70caecae9883444caaef82eb24505edf6186e747a84aae47b0a74"
+          },
+          {
+            "schema_version": 1,
+            "event_id": "a8fcb7dc-9cf9-41da-9c2e-e2e746811f4a",
+            "status_code": 200,
+            "response_body_hash": "e48a0238cbb9f43a3ba6f9d71d651f92c4e34a61be8ba98a5874a81a8881c881"
+          },
+          {
+            "schema_version": 1,
+            "event_id": "a3fcb947-f6db-48f2-abd3-1082fde43852",
+            "status_code": 200,
+            "response_body_hash": "b3887cc88d8e86a3aafcb4252067429a5338f99c75780f53a11fbf3efd6a2740"
+          },
+          {
+            "schema_version": 1,
+            "event_id": "3106b8e2-27d9-4694-9758-fc7e1308efbb",
+            "status_code": 200,
+            "response_body_hash": "d184e8aca163b220cd1e26510b076bfa877b5f52f85dcac5eeda9ea3d1af68fa"
+          }
+        ],
+        "error": null
+      },
+      "actor_removal_checks": [
+        {
+          "removed_actor": "fraud",
+          "status": "not_reproduced"
+        },
+        {
+          "removed_actor": "impatient",
+          "status": "not_reproduced"
+        }
+      ]
+    },
+    {
+      "case_id": "E7",
+      "finding_id": "31387925-a92c-42ca-a5da-47367f6d5820",
+      "run_id": "0d9e34bb-68e4-4498-aeeb-fb44c9702b4c",
+      "seed": 33,
+      "title": "A blocked buyer contacted the seller by an item question",
+      "verified": true,
+      "causality": "interaction-required",
+      "involved_agents": [
+        "seller",
+        "troll"
+      ],
+      "oracle_triggered": "E7",
+      "oracle_evidence": [
+        {
+          "bug_id": "E7",
+          "question_id": 2,
+          "item_id": 1,
+          "author_id": 6
+        }
+      ],
+      "replay": {
+        "schema_version": 1,
+        "seed": 33,
+        "steps": [
+          {
+            "schema_version": 1,
+            "actions": [
+              {
+                "schema_version": 1,
+                "event_id": "26be11dd-0211-416f-8153-3e76ba83e2e5",
+                "agent_id": "seller",
+                "request": {
+                  "schema_version": 1,
+                  "method": "POST",
+                  "path": "/api/blocks",
+                  "query": {},
+                  "headers": {
+                    "X-Swarm-Action": "0d9e34bb-68e4-4498-aeeb-fb44c9702b4c:11"
+                  },
+                  "json_body": {
+                    "blocker_id": 1,
+                    "blocked_id": 6
+                  }
+                },
+                "expected_status": null,
+                "acceptable_statuses": [],
+                "bindings": {}
+              }
+            ]
+          },
+          {
+            "schema_version": 1,
+            "actions": [
+              {
+                "schema_version": 1,
+                "event_id": "80c06788-755c-480c-b0f1-a02c80261cbd",
+                "agent_id": "troll",
+                "request": {
+                  "schema_version": 1,
+                  "method": "POST",
+                  "path": "/api/items/1/questions",
+                  "query": {},
+                  "headers": {
+                    "X-Swarm-Action": "0d9e34bb-68e4-4498-aeeb-fb44c9702b4c:22"
+                  },
+                  "json_body": {
+                    "author_id": 6,
+                    "body": "Is this keyboard fully functional?"
+                  }
+                },
+                "expected_status": null,
+                "acceptable_statuses": [],
+                "bindings": {}
+              }
+            ]
+          }
+        ]
+      },
+      "successful_attempt": {
+        "schema_version": 1,
+        "status": "verified",
+        "results": [
+          {
+            "schema_version": 1,
+            "event_id": "26be11dd-0211-416f-8153-3e76ba83e2e5",
+            "status_code": 200,
+            "response_body_hash": "4062edaf750fb8074e7e83e0c9028c94e32468a8b6f1614774328ef045150f93"
+          },
+          {
+            "schema_version": 1,
+            "event_id": "80c06788-755c-480c-b0f1-a02c80261cbd",
+            "status_code": 200,
+            "response_body_hash": "cac4913d4d4e5523a49ca8503b725e3565764d61d910f6ed36d137200d1d7893"
+          }
+        ],
+        "error": null
+      },
+      "actor_removal_checks": [
+        {
+          "removed_actor": "seller",
+          "status": "not_reproduced"
+        },
+        {
+          "removed_actor": "troll",
+          "status": "not_reproduced"
+        }
+      ]
+    }
+  ]
+}
