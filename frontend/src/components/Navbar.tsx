@@ -73,17 +73,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCliModal }) => {
           </span>
         </a>
 
-        <ul className="hidden items-center gap-1 lg:flex">
-          <li>
-            <a
-              className="rounded-full px-3.5 py-2 text-[15px] font-medium text-ink/75 transition-colors hover:bg-sage hover:text-ink focus-visible:ring-2 focus-visible:ring-moss focus-visible:outline-none whitespace-nowrap shrink-0"
-              href="/dashboard"
-            >
-              Dashboard
-            </a>
-          </li>
-        </ul>
-
         <button
           type="button"
           onClick={onOpenCliModal}
