@@ -1,20 +1,23 @@
-"""Local MemoryStore implementation; Meko is a pluggable Phase 2 adapter."""
+"""Local MemoryStore implementation with Meko Phase 2 adapter."""
 
 from __future__ import annotations
 
 import json
+import logging
+import os
 import sqlite3
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from threading import RLock
-from typing import Literal, Protocol
+from typing import Any, Literal, Optional, Protocol
 
 from pydantic import JsonValue
 
 from detect.contracts import Finding
 from verify.replay import ReplayVerifier, VerificationResult
 
+logger = logging.getLogger("swarmtest.memory")
 Classification = Literal["fixed", "still_failing", "regressed", "inconclusive"]
 
 
@@ -147,8 +150,118 @@ class LocalMemoryStore:
         self.close()
 
 
+class MekoMemoryStore:
+    """
+    Decorator around LocalMemoryStore that publishes verified findings to Meko.
+    Local database remains the primary source of truth for replays and regression checks.
+    If Meko fails, a warning is logged and execution continues seamlessly.
+    """
+
+    def __init__(self, local_store: LocalMemoryStore, meko_client: Any = None):
+        self._local = local_store
+        self._meko = meko_client
+
+    def save_finding(self, project: str, finding: Finding) -> None:
+        # Local database is always the source of truth
+        self._local.save_finding(project, finding)
+        if self._meko:
+            try:
+                self._meko.publish_finding(finding)
+                logger.info("Successfully published finding %s to Meko", finding.id)
+            except Exception as exc:
+                logger.warning(
+                    "Meko publish_finding failed for %s (falling back to local): %s",
+                    finding.id,
+                    exc,
+                )
+
+    def recall_findings(self, project: str) -> list[Finding]:
+        # Exhaustive recall always comes from local database
+        return self._local.recall_findings(project)
+
+    def save_agent_memory(self, project: str, agent_id: str, memory: dict[str, JsonValue]) -> None:
+        self._local.save_agent_memory(project, agent_id, memory)
+
+    def recall_agent_memory(self, project: str, agent_id: str) -> dict[str, JsonValue] | None:
+        return self._local.recall_agent_memory(project, agent_id)
+
+    def record_trace(self, project: str, trace: dict[str, JsonValue]) -> None:
+        self._local.record_trace(project, trace)
+
+    def traces(self, project: str) -> list[dict[str, JsonValue]]:
+        return self._local.traces(project)
+
+    def classify(
+        self, project: str, finding: Finding, result: VerificationResult, *, run_id: str
+    ) -> Classification:
+        return self._local.classify(project, finding, result, run_id=run_id)
+
+    def publish_run_summary(self, run_id: str, results: list[dict[str, str]]) -> None:
+        if self._meko:
+            try:
+                self._meko.publish_run_summary(run_id, results)
+                logger.info("Successfully published run summary %s to Meko", run_id)
+            except Exception as exc:
+                logger.warning(
+                    "Meko publish_run_summary failed for %s (falling back to local): %s",
+                    run_id,
+                    exc,
+                )
+
+    def close(self) -> None:
+        self._local.close()
+
+    def __enter__(self) -> MekoMemoryStore:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        self.close()
+
+
+def create_memory_store(
+    config: Optional[dict[str, Any]] = None,
+    local_db_path: str | Path = "swarmtest_memory.sqlite3",
+) -> MemoryStore:
+    """
+    Factory function returning MekoMemoryStore if configured and valid,
+    falling back safely to LocalMemoryStore otherwise.
+    """
+    local = LocalMemoryStore(local_db_path)
+    if not config:
+        return local
+
+    store_cfg = config.get("findings_store", {})
+    if store_cfg.get("type") != "meko":
+        return local
+
+    api_key_env = store_cfg.get("api_key_env", "MEKO_API_KEY")
+    datapack_id_env = store_cfg.get("datapack_id_env", "MEKO_DATAPACK_ID")
+    mcp_url = store_cfg.get("mcp_url", "https://mcp.mekodata.ai/mcp")
+
+    api_key = os.getenv(api_key_env, "").strip()
+    datapack_id = os.getenv(datapack_id_env, "").strip()
+
+    if not api_key or not datapack_id:
+        logger.warning(
+            "Meko credentials missing (env %s / %s not set). Falling back to local store.",
+            api_key_env,
+            datapack_id_env,
+        )
+        return local
+
+    try:
+        from memory.meko import MekoClient
+
+        client = MekoClient(mcp_url=mcp_url, api_key=api_key, datapack_id=datapack_id)
+        logger.info("Initialized MekoMemoryStore connected to datapack %s", datapack_id)
+        return MekoMemoryStore(local_store=local, meko_client=client)
+    except Exception as exc:
+        logger.warning("Failed to initialize MekoClient: %s. Falling back to local store.", exc)
+        return local
+
+
 async def recheck_saved_findings(
-    store: LocalMemoryStore,
+    store: LocalMemoryStore | MekoMemoryStore,
     project: str,
     verifier: ReplayVerifier,
     *,
@@ -160,4 +273,9 @@ async def recheck_saved_findings(
         result = await verifier.verify(finding)
         classification = store.classify(project, finding, result, run_id=run_id)
         outcomes.append({"finding_id": finding.id, "classification": classification})
+
+    # Publish run summary to Meko if supported by store
+    if hasattr(store, "publish_run_summary"):
+        store.publish_run_summary(run_id, outcomes)
+
     return outcomes

@@ -202,3 +202,10 @@ model_concurrency: 2
 target: bazaar
 seed_fixture: apps/bazaar/seed_data.json
 invariants: apps/bazaar/invariants.sql
+
+findings_store:
+  type: meko            # or: local
+  mcp_url: https://mcp.mekodata.ai/mcp
+  api_key_env: MEKO_API_KEY
+  datapack_id_env: MEKO_DATAPACK_ID
+  fallback: local
