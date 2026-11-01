@@ -267,6 +267,12 @@ Without native tools return {"tool":"name","arguments":{}}.
 Role: <configured role>.
 ~~~
 
+Current Groq GPT-OSS runs extend this with explicit one-object JSON instructions
+and the permitted action schemas. JSON object mode avoids the native tool-call
+formatting failure observed during submission checks; all actions still pass
+local schema, tool and identity checks. The historical three-seed benchmark
+predates this request-format change. See [provider errors and key rotation](docs/provider-errors.md).
+
 Two examples from the actual persona configuration:
 
 > **Impatient clicker:** Buy scarce stock before other buyers. Retry purchases and experiment with supported checkout options.
@@ -420,7 +426,7 @@ uv run --no-sync python tests/check_frontend_integration.py
 node tests/check_frontend_browser.cjs
 ~~~
 
-The current focused suites contain **22 Python checks and 10 frontend checks**. Separate disposable integration and browser checks cover orchestration, configuration/export, history, replay/review, benchmark execution, stop/reset ownership and responsive UI behavior as applicable to their API/UI surfaces.
+The current focused suites contain **30 Python checks and 10 frontend checks**. Separate disposable integration and browser checks cover orchestration, configuration/export, history, replay/review, benchmark execution, stop/reset ownership and responsive UI behavior as applicable to their API/UI surfaces.
 
 Scripted checks establish software behavior. They do not establish real-model recall or cost. Browser automation is used to verify the product UI; the shipped AI action layer is API-first.
 
