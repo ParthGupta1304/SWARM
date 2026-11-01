@@ -1,10 +1,14 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from "react";
 
 interface NavbarProps {
   onOpenCliModal: () => void;
 }
 
-export function BrandLogo({ className = 'h-[26px] sm:h-[31px]' }: { className?: string }) {
+export function BrandLogo({
+  className = "h-[26px] sm:h-[31px]",
+}: {
+  className?: string;
+}) {
   return (
     <svg
       viewBox="0 0 32 32"
@@ -26,8 +30,32 @@ export function BrandLogo({ className = 'h-[26px] sm:h-[31px]' }: { className?: 
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ onOpenCliModal }) => {
+  const [hidden, setHidden] = useState(false);
+  const header = useRef<HTMLElement>(null);
+  useEffect(() => {
+    let previous = Math.max(0, window.scrollY);
+    function scroll() {
+      const current = Math.max(0, window.scrollY);
+      if (current <= 40 || header.current?.querySelector(":focus-visible")) {
+        setHidden(false);
+        previous = current;
+        return;
+      }
+      if (Math.abs(current - previous) < 6) return;
+      setHidden(current > previous && current > 80);
+      previous = current;
+    }
+    window.addEventListener("scroll", scroll, { passive: true });
+    return () => window.removeEventListener("scroll", scroll);
+  }, []);
   return (
-    <header className="pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center px-4 pt-4 sm:pt-7 lg:pt-10">
+    <header
+      ref={header}
+      inert={hidden}
+      aria-hidden={hidden}
+      className="pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center px-4 pt-4 transition-transform duration-200 motion-reduce:transition-none sm:pt-7 lg:pt-10"
+      style={{ transform: hidden ? "translateY(-100%)" : "translateY(0)" }}
+    >
       <nav
         aria-label="Main"
         className="pointer-events-auto flex items-center gap-7 rounded-full border border-black/[0.07] bg-white/85 py-1 pr-1 pl-4 shadow-[0_12px_32px_-16px_rgba(20,23,15,0.3)] backdrop-blur-md motion-safe:animate-intro-drop sm:gap-12 sm:pl-5"
@@ -49,33 +77,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCliModal }) => {
           <li>
             <a
               className="rounded-full px-3.5 py-2 text-[15px] font-medium text-ink/75 transition-colors hover:bg-sage hover:text-ink focus-visible:ring-2 focus-visible:ring-moss focus-visible:outline-none whitespace-nowrap shrink-0"
-              href="/#workflow"
-            >
-              How it works
-            </a>
-          </li>
-          <li>
-            <a
-              className="rounded-full px-3.5 py-2 text-[15px] font-medium text-ink/75 transition-colors hover:bg-sage hover:text-ink focus-visible:ring-2 focus-visible:ring-moss focus-visible:outline-none whitespace-nowrap shrink-0"
-              href="#oversight"
-            >
-              Verification
-            </a>
-          </li>
-          <li>
-            <a
-              className="rounded-full px-3.5 py-2 text-[15px] font-medium text-ink/75 transition-colors hover:bg-sage hover:text-ink focus-visible:ring-2 focus-visible:ring-moss focus-visible:outline-none whitespace-nowrap shrink-0"
               href="/dashboard"
             >
               Dashboard
-            </a>
-          </li>
-          <li>
-            <a
-              className="rounded-full px-3.5 py-2 text-[15px] font-medium text-ink/75 transition-colors hover:bg-sage hover:text-ink focus-visible:ring-2 focus-visible:ring-moss focus-visible:outline-none whitespace-nowrap shrink-0"
-              href="#value"
-            >
-              Configuration
             </a>
           </li>
         </ul>

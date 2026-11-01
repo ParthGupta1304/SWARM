@@ -278,33 +278,9 @@ export const CtaAndFooter: React.FC<CtaAndFooterProps> = ({
                 <li>
                   <a
                     className="inline-flex items-center gap-1 rounded-md text-[16px] text-ink/70 transition-colors hover:text-moss"
-                    href="/#workflow"
-                  >
-                    How it works
-                  </a>
-                </li>
-                <li>
-                  <a
-                    className="inline-flex items-center gap-1 rounded-md text-[16px] text-ink/70 transition-colors hover:text-moss"
-                    href="#oversight"
-                  >
-                    Verification
-                  </a>
-                </li>
-                <li>
-                  <a
-                    className="inline-flex items-center gap-1 rounded-md text-[16px] text-ink/70 transition-colors hover:text-moss"
                     href="/dashboard"
                   >
                     Dashboard
-                  </a>
-                </li>
-                <li>
-                  <a
-                    className="inline-flex items-center gap-1 rounded-md text-[16px] text-ink/70 transition-colors hover:text-moss"
-                    href="#value"
-                  >
-                    Configuration
                   </a>
                 </li>
               </ul>
@@ -332,14 +308,6 @@ export const CtaAndFooter: React.FC<CtaAndFooterProps> = ({
                     rel="noopener noreferrer"
                   >
                     PRD Specification
-                  </a>
-                </li>
-                <li>
-                  <a
-                    className="inline-flex items-center gap-1 rounded-md text-[16px] text-ink/70 transition-colors hover:text-moss"
-                    href="#oversight"
-                  >
-                    Meko Phase 2 Memory
                   </a>
                 </li>
               </ul>

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { useConsole } from "../lib/console";
 import {
   recall,
@@ -12,7 +12,6 @@ import {
 import { LiveToolbar, ComparisonChart, RunPanels } from "../lib/RunPanels";
 
 type ConditionKey = "cond-b" | "cond-c" | "phase-2";
-type BugFilterKey = "all" | "emergent" | "single-user";
 
 const CONDITION_DESCRIPTIONS: Record<
   ConditionKey,
@@ -43,14 +42,7 @@ export const DashboardSection: React.FC<{ compact?: boolean }> = ({
     if (key !== "phase-2")
       c.setCondition(key === "cond-b" ? "isolated" : "swarm");
   };
-  const [bugFilter, setBugFilter] = useState<BugFilterKey>("all");
   const ids = foundIds(c.findings);
-  const visibleBugs = (c.config?.bugs || [])
-    .filter((b) => bugFilter === "all" || b.type === bugFilter)
-    .map((b) => ({
-      ...b,
-      measuredRecall: c.run ? (ids.has(b.id) ? "Verified" : "Not found") : "—",
-    }));
   const conditionMeta = CONDITION_DESCRIPTIONS[activeCondition];
   const m = c.benchmark?.conditions[c.condition]?.metrics;
   const DASHBOARD_KPI_SLOTS = [
@@ -214,134 +206,20 @@ export const DashboardSection: React.FC<{ compact?: boolean }> = ({
               ))}
             </dl>
 
-            {/* Bottom 2-Column Grid: Planted Ground-Truth Bugs & Blank Chart (Left) + 6-Role Roster Table (Right) */}
+            {/* Benchmark comparison and agent outcomes */}
             <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[1.06fr_1fr]">
-              {/* Left Card: Benchmark Plot (Blank) & Planted Bugs Oracle List */}
-              <div className="flex flex-col justify-between rounded-[24px] border border-border bg-white p-5 sm:p-6">
+              {/* Measured benchmark recall */}
+              <div className="flex flex-col self-start rounded-[24px] border border-border bg-white p-5 sm:p-6">
                 <div>
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <h4 className="text-[15.5px] font-semibold text-ink">
-                      Planted bugs &amp; benchmark recall
-                    </h4>
-                    <div
-                      role="group"
-                      aria-label="Filter planted bugs"
-                      className="inline-flex rounded-full bg-mist p-0.5 text-[12px]"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => setBugFilter("all")}
-                        className={`cursor-pointer rounded-full px-2.5 py-1 font-medium transition-colors whitespace-nowrap ${
-                          bugFilter === "all"
-                            ? "bg-white text-ink shadow-xs"
-                            : "text-muted-foreground hover:text-ink"
-                        }`}
-                      >
-                        All
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setBugFilter("emergent")}
-                        className={`cursor-pointer rounded-full px-2.5 py-1 font-medium transition-colors whitespace-nowrap ${
-                          bugFilter === "emergent"
-                            ? "bg-white text-ink shadow-xs"
-                            : "text-muted-foreground hover:text-ink"
-                        }`}
-                      >
-                        Emergent
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setBugFilter("single-user")}
-                        className={`cursor-pointer rounded-full px-2.5 py-1 font-medium transition-colors whitespace-nowrap ${
-                          bugFilter === "single-user"
-                            ? "bg-white text-ink shadow-xs"
-                            : "text-muted-foreground hover:text-ink"
-                        }`}
-                      >
-                        Single-user
-                      </button>
-                    </div>
-                  </div>
-
+                  <h4 className="text-[15.5px] font-semibold text-ink">
+                    Benchmark recall
+                  </h4>
                   <p className="mt-3 text-[13px] text-muted-foreground">
                     {c.run
                       ? `${ids.size} of ${c.config?.bugs.length || 8} distinct bugs verified · ${c.findings.filter((f) => f.verified && f.type === "emergent").reduce((a, f) => a.add(f.mapped_bug_id || f.id), new Set()).size} emergent · ${c.findings.filter((f) => f.verified && f.type === "single-user").reduce((a, f) => a.add(f.mapped_bug_id || f.id), new Set()).size} single-user`
                       : "Choose a measured run or start checking."}
                   </p>
                   <ComparisonChart />
-                </div>
-
-                {/* Frozen Planted Bug List (PRD Section 7) */}
-                <div className="mt-4 overflow-x-auto">
-                  <table className="w-full min-w-[400px] text-left text-[13px]">
-                    <thead>
-                      <tr className="border-b border-border text-[11.5px] font-medium text-muted-foreground">
-                        <th className="pb-2 pr-3 font-medium">ID</th>
-                        <th className="pb-2 pr-3 font-medium">
-                          Planted bug description
-                        </th>
-                        <th className="pb-2 pr-3 font-medium">Type</th>
-                        <th className="pb-2 text-right font-medium">
-                          Run result
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {visibleBugs.map((bug) => (
-                        <tr key={bug.id}>
-                          <td className="py-2.5 pr-3 font-mono text-[12px] font-semibold text-ink">
-                            {bug.id}
-                          </td>
-                          <td className="py-2.5 pr-3 text-ink/85">
-                            {bug.description}
-                          </td>
-                          <td className="py-2.5 pr-3 whitespace-nowrap">
-                            <span
-                              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
-                                bug.type === "emergent"
-                                  ? "bg-sage text-moss"
-                                  : "bg-mist text-muted-foreground"
-                              }`}
-                            >
-                              {bug.type}
-                            </span>
-                          </td>
-                          {/* Inspect verified evidence */}
-                          <td
-                            data-testid={`bug-recall-${bug.id}`}
-                            className="py-2.5 text-right font-mono text-[12px] text-muted-foreground tabular-nums"
-                          >
-                            {ids.has(bug.id) ? (
-                              <button
-                                className="ui-text-link"
-                                onClick={() => {
-                                  const finding = c.findings.find(
-                                    (f) =>
-                                      f.verified && f.mapped_bug_id === bug.id,
-                                  );
-                                  if (finding) c.setFindingId(finding.id);
-                                  document
-                                    .getElementById("oversight")
-                                    ?.scrollIntoView({
-                                      behavior: matchMedia(
-                                        "(prefers-reduced-motion: reduce)",
-                                      ).matches
-                                        ? "instant"
-                                        : "smooth",
-                                    });
-                                }}
-                              >
-                                Inspect
-                              </button>
-                            ) : (
-                              bug.measuredRecall
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
                 </div>
               </div>
 
@@ -351,9 +229,6 @@ export const DashboardSection: React.FC<{ compact?: boolean }> = ({
                   <h4 className="text-[15.5px] font-semibold text-ink">
                     Agent roster
                   </h4>
-                  <span className="text-[12px] text-muted-foreground">
-                    {c.run?.model || c.config?.model || "Loading"}
-                  </span>
                 </div>
 
                 <div className="mt-4 overflow-x-auto">

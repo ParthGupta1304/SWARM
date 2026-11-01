@@ -27,17 +27,7 @@ export function LiveToolbar() {
           <span role="status">
             {c.connected ? "Connected" : "Reconnecting to local service"}
           </span>
-          <span>
-            · {c.config?.provider || "Local workspace"} /{" "}
-            {c.config?.model || "Loading"}
-          </span>
         </div>
-        <a
-          href="/bazaar/"
-          className="text-[13px] font-semibold text-moss underline-offset-4 hover:underline"
-        >
-          Open Bazaar ↗
-        </a>
       </div>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <label className="min-w-0 flex-1 text-[12px] text-muted-foreground">
@@ -93,24 +83,6 @@ export function LiveToolbar() {
             Reset workspace
           </button>
         </div>
-      </div>
-      <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[12px] text-muted-foreground">
-        <span>
-          {c.options
-            ? c.options.normal_agents + c.options.adversary_agents
-            : 10}{" "}
-          agents · up to {c.config?.max_rounds || 6} rounds
-        </span>
-        <span>
-          Run cap {money(c.options?.max_dollars)} ·{" "}
-          {number(c.config?.token_budget)} tokens
-        </span>
-        {c.run && (
-          <span>
-            {c.selected === "live" ? "Workspace" : "Saved run"} · seed{" "}
-            {c.run.seed} · {c.run.run_id.slice(0, 8)}
-          </span>
-        )}
       </div>
       {(c.error || c.state?.error || c.run?.agents.some((a) => a.error)) && (
         <p

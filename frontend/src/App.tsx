@@ -8,10 +8,7 @@ import { ConsoleProvider } from "./lib/console";
 import { Navbar } from "./components/Navbar";
 import { HeroSection } from "./components/HeroSection";
 import { ProofSection } from "./components/ProofSection";
-import { WorkflowSection } from "./components/WorkflowSection";
-import { OversightSection } from "./components/OversightSection";
 import { DashboardSection } from "./components/DashboardSection";
-import { ValueSection } from "./components/ValueSection";
 import { CtaAndFooter } from "./components/CtaAndFooter";
 
 function Shell() {
@@ -71,19 +68,12 @@ function Shell() {
 
       <main id="main">
         {operational ? (
-          <>
-            <DashboardSection compact />
-            <OversightSection />
-            <ValueSection onOpenCliModal={() => setIsCliModalOpen(true)} />
-          </>
+          <DashboardSection compact />
         ) : (
           <>
             <HeroSection />
             <ProofSection />
-            <WorkflowSection />
-            <OversightSection />
             <DashboardSection />
-            <ValueSection onOpenCliModal={() => setIsCliModalOpen(true)} />
           </>
         )}
       </main>

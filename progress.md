@@ -1,3 +1,17 @@
+# Frontend cleanup — 2026-11-01
+
+- Navbar now hides on scroll down and returns on scroll up. Removed workflow,
+  oversight and swarm-configuration sections plus their navigation links.
+- Removed the planted-bug catalog table and toolbar model, population, budget,
+  token-cap, run-ID/seed and Bazaar-link details. Kept run controls, history,
+  benchmark/activity charts, agent outcomes and report downloads.
+- Production build and ten frontend checks pass. Focused browser checks cover
+  both pages, scroll direction, removed content, responsive layouts and reset
+  cancellation without a model run or workspace reset. Backend behavior is
+  unchanged; generated assets are served by the existing launcher.
+
+---
+
 # Frontend integration — 2026-11-01
 
 - Merged the complete `frontend` reference branch without conflicts and preserved

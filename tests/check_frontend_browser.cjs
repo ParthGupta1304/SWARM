@@ -77,30 +77,37 @@ async function main() {
   );
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  // Server validation and configuration export are reflected in the controls.
-  await page.getByLabel("Development seed").fill("11");
-  await expect(page.getByRole("alert")).toContainText(
-    "Development seed must differ",
-  );
-  await expect(start).toBeDisabled();
-  await page.getByLabel("Development seed").fill("2");
-  await expect(start).toBeEnabled();
-  const yamlDownload = page.waitForEvent("download");
-  await page
-    .getByRole("button", { name: "Download swarmtest.yaml", exact: true })
-    .click();
-  const yamlFile = path.join(temporary, "selected.yaml");
-  await (await yamlDownload).saveAs(yamlFile);
-  assert.match(fs.readFileSync(yamlFile, "utf8"), /seed: 2/);
-  await page.getByLabel("Development seed").fill("1");
-  await expect(start).toBeEnabled();
+  // Removed presentation sections and metadata stay absent on both pages.
+  for (const selector of [
+    "#workflow",
+    "#oversight",
+    "#value",
+    '[aria-label="Filter planted bugs"]',
+  ]) {
+    await expect(page.locator(selector)).toHaveCount(0);
+  }
+  await page.evaluate(() => window.scrollTo(0, 500));
+  await expect
+    .poll(() =>
+      page
+        .locator("header")
+        .evaluate((el) => el.getBoundingClientRect().bottom),
+    )
+    .toBeLessThanOrEqual(0);
+  await page.evaluate(() => window.scrollTo(0, 200));
+  await expect
+    .poll(() =>
+      page.locator("header").evaluate((el) => el.getBoundingClientRect().top),
+    )
+    .toBe(0);
+  await page.evaluate(() => window.scrollTo(0, 0));
   await start.click();
   await expect(
     page.getByRole("button", { name: "Stop", exact: true }),
   ).toBeEnabled();
   await page.getByRole("button", { name: "Stop", exact: true }).click();
   await waitIdle();
-  // Finish a full run, then inspect, replay and review its actual artifacts.
+  // Finish a full run, then inspect and download its actual artifacts.
   await expect(start).toBeEnabled();
   await start.click();
   await waitIdle();
@@ -114,28 +121,6 @@ async function main() {
     .click();
   await expect(
     page.getByRole("table", { name: "Latest twenty recorded actions" }),
-  ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Replay on fresh DB", exact: true })
-    .click();
-  await waitIdle();
-  await expect(page.getByText(/Recheck: Reproduced/)).toBeVisible({
-    timeout: 20000,
-  });
-  await page
-    .getByText("Original proof and human spot-check", { exact: true })
-    .click();
-  await page.getByLabel("Your name").fill("Scripted browser check");
-  await page
-    .getByLabel("Evidence note")
-    .fill("Verified the independent replay of this controlled fixture.");
-  await page
-    .getByRole("button", { name: "Record spot-check", exact: true })
-    .click();
-  await expect(
-    page.getByText("Spot-check recorded against this evidence.", {
-      exact: true,
-    }),
   ).toBeVisible();
   const report = page.waitForEvent("download");
   await page.getByRole("link", { name: "Download JSON", exact: true }).click();
@@ -200,7 +185,10 @@ async function main() {
     }),
   ).toBeVisible();
   assert.deepEqual(await (await fetch(url + "/api/history")).json(), []);
-  await page.getByRole("link", { name: "Open Bazaar ↗", exact: true }).click();
+  await expect(
+    page.getByRole("link", { name: "Open Bazaar ↗", exact: true }),
+  ).toHaveCount(0);
+  await page.goto(url + "/bazaar/", { waitUntil: "domcontentloaded" });
   await expect(page).toHaveURL(/\/bazaar\/$/);
   await expect(page).toHaveTitle(/Bazaar/);
   await expect(
@@ -216,14 +204,12 @@ async function main() {
         browserErrors: errors,
         widths: [390, 768, 1440],
         workflows: [
-          "configuration/export",
           "start/stop",
           "history/download",
-          "fresh replay",
-          "human review",
           "six-run benchmark",
           "confirmed reset",
-          "Bazaar navigation",
+          "scroll navigation and section removal",
+          "Bazaar route",
         ],
       },
       null,
