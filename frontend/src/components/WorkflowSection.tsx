@@ -65,7 +65,7 @@ export const WorkflowSection: React.FC = () => {
           without importing an SDK.
         </h2>
         <p className="mt-5 max-w-[56ch] text-[17px] leading-relaxed text-muted-foreground">
-          Point Swarmtest at a staging copy of your app using an OpenAPI spec
+          Point SWARM at a staging copy of your app using an OpenAPI spec
           and one config file. Agents act from the outside like real users while
           every action is logged.
         </p>

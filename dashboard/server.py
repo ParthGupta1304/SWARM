@@ -112,7 +112,7 @@ def create_app(config, environment, output: Path, results: Path | None = None):
             await state["reset_task"]
         store.close()
 
-    app = FastAPI(title="Swarmtest console", lifespan=lifespan)
+    app = FastAPI(title="SWARM console", lifespan=lifespan)
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
     if MARKET.exists():
         app.mount("/bazaar", StaticFiles(directory=MARKET, html=True), name="bazaar")

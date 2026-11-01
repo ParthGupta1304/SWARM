@@ -170,7 +170,7 @@ export const CtaAndFooter: React.FC<CtaAndFooterProps> = ({
                 Test your app as a society before real users arrive.
               </h2>
               <p className="mx-auto mt-5 max-w-[48ch] text-[18px] leading-relaxed text-ink/85">
-                Run Swarmtest from the command line against a disposable staging
+                Run SWARM from the command line against a disposable staging
                 copy of your app with your configured Groq key in local .env.
               </p>
               <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
@@ -232,13 +232,13 @@ export const CtaAndFooter: React.FC<CtaAndFooterProps> = ({
           <div className="grid gap-12 px-2 py-12 sm:grid-cols-2 sm:py-16 lg:grid-cols-[1.4fr_1fr_1fr] lg:px-6">
             <div className="sm:col-span-2 lg:col-span-1">
               <a
-                aria-label="Swarmtest home"
+                aria-label="SWARM home"
                 href="/#hero"
                 className="inline-flex items-center gap-2.5 rounded-xl text-ink focus-visible:ring-2 focus-visible:ring-moss focus-visible:ring-offset-4 focus-visible:ring-offset-mist focus-visible:outline-none"
               >
                 <BrandLogo className="h-8" />
                 <span className="font-heading text-[28px] leading-none font-medium tracking-[-0.035em]">
-                  swarmtest
+                  SWARM
                 </span>
               </a>
               <p className="mt-5 max-w-[38ch] text-[16px] leading-relaxed text-ink/65">
@@ -281,7 +281,7 @@ export const CtaAndFooter: React.FC<CtaAndFooterProps> = ({
           </div>
 
           <div className="flex flex-col justify-between gap-3 border-t border-black/[0.07] px-2 py-6 text-[13.5px] text-ink/55 sm:flex-row lg:px-6">
-            <p>© 2026 Swarmtest. Hackathon edition v0.1.</p>
+            <p>© 2026 SWARM. Hackathon edition v0.1.</p>
             <p>
               Test only apps you own or have explicit permission to test.
               Synthetic data only.
@@ -309,7 +309,7 @@ export const CtaAndFooter: React.FC<CtaAndFooterProps> = ({
                   id="cli-modal-title"
                   className="mt-3 font-heading text-[24px] font-medium tracking-[-0.025em] text-ink"
                 >
-                  Run Swarmtest from the CLI
+                  Run SWARM from the CLI
                 </h3>
               </div>
               <button
@@ -323,7 +323,7 @@ export const CtaAndFooter: React.FC<CtaAndFooterProps> = ({
             </div>
 
             <p className="mt-2 text-[14.5px] leading-relaxed text-muted-foreground">
-              Customers run Swarmtest against a disposable staging environment
+              Customers run SWARM against a disposable staging environment
               it can reset for deterministic replay. Bring your configured Groq
               key in local .env.
             </p>

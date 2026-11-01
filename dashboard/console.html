@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Swarmtest · Run console</title><link rel="stylesheet" href="/static/style.css"><script src="/static/app.js" defer></script></head>
+<title>SWARM · Run console</title><link rel="stylesheet" href="/static/style.css"><script src="/static/app.js" defer></script></head>
 <body><header><a class="brand" href="/">SWARM<span>TEST</span></a><span class="local">LOCAL WORKSPACE</span><a href="/bazaar/" class="market-link">Open Bazaar marketplace ↗</a><span id="connection" role="status">Connecting…</span></header>
 <main><div class="intro"><div><p class="eyebrow">BAZAAR / PHASE 1</p><h1>Watch users collide.</h1><p>Follow concurrent actions, inspect replay evidence, and compare isolated users with the swarm.</p></div><div class="controls"><label for="condition">Run condition</label><select id="condition"><option value="swarm">Full swarm</option><option value="isolated">Isolated users</option><option value="benchmark">Benchmark · 3 seeds × 2 conditions</option></select><div><button id="start">Start run</button><button id="stop" class="secondary" disabled>Stop run</button><button id="reset" class="secondary" aria-describedby="reset-help">Reset workspace</button></div></div></div>
 <p id="reset-help">Reset deletes this workspace’s history, findings, reports and agent memory, and restores seeded Bazaar data. API keys and settings are kept. Groq’s provider cache is managed separately.</p><p id="reset-status" role="status"></p>

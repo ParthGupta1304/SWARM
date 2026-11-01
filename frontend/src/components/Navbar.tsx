@@ -61,14 +61,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCliModal }) => {
         className="pointer-events-auto flex items-center gap-7 rounded-full border border-black/[0.07] bg-white/85 py-1 pr-1 pl-4 shadow-[0_12px_32px_-16px_rgba(20,23,15,0.3)] backdrop-blur-md motion-safe:animate-intro-drop sm:gap-12 sm:pl-5"
       >
         <a
-          aria-label="Swarmtest home"
+          aria-label="SWARM home"
           href="/#hero"
           className="flex items-center self-stretch rounded-full focus-visible:ring-2 focus-visible:ring-moss focus-visible:ring-offset-4 focus-visible:outline-none whitespace-nowrap shrink-0"
         >
           <span className="inline-flex items-center gap-2.5 text-ink translate-y-px">
             <BrandLogo />
             <span className="font-heading text-[26px] leading-none font-medium tracking-[-0.035em] sm:text-[31px]">
-              swarmtest
+              SWARM
             </span>
           </span>
         </a>

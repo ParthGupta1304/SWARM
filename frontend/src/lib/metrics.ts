@@ -18,6 +18,14 @@ export const duration = (seconds: number | undefined) =>
     : seconds < 60
       ? `${seconds.toFixed(1)}s`
       : `${Math.floor(seconds / 60)}m ${Math.floor(seconds % 60)}s`;
+export function averageDuration(rows: { elapsed_s?: number }[]) {
+  if (
+    !rows.length ||
+    rows.some((r) => r.elapsed_s == null || !Number.isFinite(r.elapsed_s) || r.elapsed_s < 0)
+  )
+    return undefined;
+  return rows.reduce((total, row) => total + row.elapsed_s!, 0) / rows.length;
+}
 export function foundIds(findings: Finding[] = []) {
   return new Set(
     findings

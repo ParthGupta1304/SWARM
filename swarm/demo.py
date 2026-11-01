@@ -42,6 +42,7 @@ def main():
                 provider_base_url=provider.url,
                 model="scripted-fixture",
                 api_key_env="SWARMTEST_FIXTURE_KEY",
+                findings_store={"type": "local"},
                 max_rounds=6,
                 requests_per_minute=1000000,
                 tokens_per_minute=100000000,

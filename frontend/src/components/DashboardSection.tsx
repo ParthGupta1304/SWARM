@@ -6,7 +6,8 @@ import {
   money,
   percent,
   roleSummary,
-  repeatability,
+  duration,
+  averageDuration,
 } from "../lib/metrics";
 import { LiveToolbar, ComparisonChart, RunPanels } from "../lib/RunPanels";
 
@@ -21,7 +22,7 @@ const CONDITION_DESCRIPTIONS: Record<
     subtitle: "Same model and token budget, no inter-agent interaction",
   },
   "cond-c": {
-    title: "Condition C · Swarmtest full interacting swarm",
+    title: "Condition C · SWARM full interacting swarm",
     subtitle: "Bazaar target · 6 persona roles · async rounds + barrier bursts",
   },
 };
@@ -66,18 +67,19 @@ export const DashboardSection: React.FC<{ compact?: boolean }> = ({
       sublabel: "Reported tokens × configured provider rates",
     },
     {
-      id: "kpi-repeatability",
-      label: "Seed repeatability",
-      value: percent(
-        repeatability(
-          c.evaluationBenchmark?.runs.filter(
-            (r) => r.condition === c.condition,
-          ) || [],
-        ),
+      id: "kpi-time",
+      label: "Time taken",
+      value: duration(
+        c.run?.elapsed_s ??
+          averageDuration(
+            c.evaluationBenchmark?.runs.filter(
+              (r) => r.condition === c.condition,
+            ) || [],
+          ),
       ),
-      sublabel: m
-        ? "Share of found IDs reproduced in all three seeds"
-        : "Needs three matched seeds; a single run cannot measure consistency",
+      sublabel: c.run
+        ? "Elapsed time for the selected run"
+        : "Average total time across three recorded seeds",
     },
   ];
   const roster = (c.config?.roles || []).map((role) => {
@@ -220,7 +222,7 @@ export const DashboardSection: React.FC<{ compact?: boolean }> = ({
                 <div className="mt-4 overflow-x-auto">
                   <table className="w-full min-w-[420px] text-left text-[13px]">
                     <caption className="sr-only">
-                      Swarmtest persona roles and recorded outcomes
+                      SWARM persona roles and recorded outcomes
                     </caption>
                     <thead>
                       <tr className="border-b border-border text-[11.5px] font-medium text-muted-foreground">

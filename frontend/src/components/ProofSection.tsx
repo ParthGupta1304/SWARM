@@ -1,6 +1,6 @@
 import React from "react";
 import { useConsole } from "../lib/console";
-import { precision, percent, money, repeatability } from "../lib/metrics";
+import { percent, money, duration, averageDuration } from "../lib/metrics";
 import { BENCHMARK_TICKET_SLOTS } from "../utils/swarmConfig";
 
 const TOP_LEFT_OUTLINE_TILES = [
@@ -27,21 +27,20 @@ const TOP_RIGHT_OUTLINE_TILES = [
 
 export const ProofSection: React.FC = () => {
   const c = useConsole();
-  const m = c.evaluationBenchmark?.conditions[c.condition]?.metrics;
+  const evaluation = c.config?.evaluation;
+  const m = evaluation?.benchmark.conditions.swarm?.metrics;
   const values = [
-    percent(c.run ? precision(c.run) : m?.precision_after_verifier?.mean),
-    percent(
-      repeatability(
-        c.evaluationBenchmark?.runs.filter(
-          (r) => r.condition === c.condition,
-        ) || [],
+    percent(m?.precision_after_verifier?.mean),
+    duration(
+      averageDuration(
+        evaluation?.benchmark.runs.filter((r) => r.condition === "swarm") || [],
       ),
     ),
-    money(c.run?.cost_usd ?? m?.cost_usd?.mean ?? undefined),
+    money(m?.cost_usd?.mean ?? undefined),
   ];
   const explanations = [
     "The share of verified findings supported by a judge or human review. High precision means fewer false alarms, not that every bug was found.",
-    "The share of discovered bug types found in all three seeds. Higher means the same bugs are found more consistently.",
+    "Average total time per SWARM run across the three recorded seeds, including exploration and verification.",
     "Estimated exploration cost per run, based on reported tokens and configured provider rates. Benchmark values average three runs and exclude judging costs.",
   ];
   return (
@@ -127,7 +126,8 @@ export const ProofSection: React.FC = () => {
           when real users collide.
         </h2>
         <p className="mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-          {c.evaluationLabel}
+          Historical Groq benchmark · SWARM condition ·{" "}
+          {evaluation?.rounds_per_run ?? "—"} rounds per run · seeds 11, 22, 33.
         </p>
       </div>
 
@@ -146,7 +146,7 @@ export const ProofSection: React.FC = () => {
           />
         </div>
 
-        {/* Three meadow tickets — selected run measurements */}
+        {/* Three meadow tickets — fixed historical measurements */}
         <ul className="relative z-20 grid grid-cols-1 gap-3.5 sm:grid-cols-3 sm:gap-5">
           {BENCHMARK_TICKET_SLOTS.map((slot, idx) => (
             <li

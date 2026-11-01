@@ -206,9 +206,9 @@ export const BENCHMARK_TICKET_SLOTS: BlankMetricSlot[] = [
     value: "",
   },
   {
-    id: "repeatability",
-    label: "Seed repeatability",
-    sublabel: "Share of discovered bug types found in all three seeds",
+    id: "time-taken",
+    label: "Time taken",
+    sublabel: "Average total time per recorded SWARM run",
     value: "",
   },
   {
@@ -239,9 +239,9 @@ export const DASHBOARD_KPI_SLOTS: BlankMetricSlot[] = [
     value: "",
   },
   {
-    id: "kpi-repeatability",
-    label: "Repeatability",
-    sublabel: "Held-out seeds evaluation",
+    id: "kpi-time",
+    label: "Time taken",
+    sublabel: "Elapsed run time",
     value: "",
   },
 ];

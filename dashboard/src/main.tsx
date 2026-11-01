@@ -40,7 +40,7 @@ function App() {
   }, {}), [findings]);
 
   return <main>
-    <header><div><p className="eyebrow">SWARMTEST / LIVE</p><h1>Bazaar swarm console</h1></div><span className={connected ? "status live" : "status"}>{connected ? "stream connected" : "reconnecting"}</span></header>
+    <header><div><p className="eyebrow">SWARM / LIVE</p><h1>Bazaar swarm console</h1></div><span className={connected ? "status live" : "status"}>{connected ? "stream connected" : "reconnecting"}</span></header>
     <section className="metrics">
       <Metric label="release" value={summary?.version ?? "..."} />
       <Metric label="activity events" value={summary?.events ?? 0} />

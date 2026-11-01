@@ -1,16 +1,16 @@
-# Swarmtest
+# SWARM
 
 ### Test what happens when your users collide.
 
-**Swarmtest puts goal-driven AI users into the same running application, exercises their interactions, and turns observed failures into independently replayed evidence.**
+**SWARM puts goal-driven AI users into the same running application, exercises their interactions, and turns observed failures into independently replayed evidence.**
 
 A checkout can work for one buyer and fail when two buyers arrive together. A coupon can behave correctly in one session and be redeemed twice across two sessions. A block can stop direct messages while another contact path stays open.
 
-Shared state connects these journeys. Swarmtest explores how their combined behavior can break a business rule.
+Shared state connects these journeys. SWARM explores how their combined behavior can break a business rule.
 
 [Run locally](#run-locally) · [Architecture](#system-architecture) · [Agents and prompts](#agents-and-prompts) · [Verified results](#evaluation-and-verified-results) · [Case studies](#three-verified-bazaar-case-studies)
 
-![Swarmtest home page](docs/images/swarm-home.png)
+![SWARM home page](docs/images/swarm-home.png)
 
 > **Submission scope:** a working Phase 1 prototype, demonstrated with **Bazaar**, our multi-user marketplace demo. The recorded real-model evaluation found three distinct interaction failures that the isolated-agent baseline did not find. This is a controlled demo benchmark, not a production security audit or a claim of exhaustive discovery.
 
@@ -29,21 +29,21 @@ The same pattern extends beyond simultaneous purchases. A refund and dispute can
 
 Teams need to explore **who acts, what they want, which state they share, and when they act**. Fixed test scripts remain valuable, but each new role, resource and action order creates more combinations to anticipate. A single AI tester also cannot demonstrate interaction-dependent behavior if every actor receives a separate application snapshot.
 
-Swarmtest combines adaptive exploration with controlled concurrency, then checks outcomes against explicit correctness rules. It produces the requests, actors and replay evidence behind a finding so an engineer can investigate it.
+SWARM combines adaptive exploration with controlled concurrency, then checks outcomes against explicit correctness rules. It produces the requests, actors and replay evidence behind a finding so an engineer can investigate it.
 
 ### Why this is a real engineering problem
 
-| Evidence | What happened or was measured | Relevance to Swarmtest |
+| Evidence | What happened or was measured | Relevance to SWARM |
 | --- | --- | --- |
-| **Knight Capital, August 2012** | The SEC reported that a defective automated router sent more than **4 million orders while handling 212 customer orders in 45 minutes**, contributing to losses above **$460 million**. | Automated actions and failed controls can amplify software mistakes rapidly. This was a deployment/control failure; we do not claim Swarmtest would have prevented it. [SEC investigation](https://www.sec.gov/newsroom/press-releases/2013-222). |
-| **PortSwigger web-race research, 2023** | James Kettle documented exploitable intermediate request states and real case studies, including GitLab. The research demonstrated synchronizing **30 requests within a sub-millisecond window** using its single-packet technique. | Request timing and hidden state transitions deserve explicit testing. Swarmtest implements application-level barriers, with no claim of equivalent packet-level timing. [Original research](https://portswigger.net/research/smashing-the-state-machine). |
+| **Knight Capital, August 2012** | The SEC reported that a defective automated router sent more than **4 million orders while handling 212 customer orders in 45 minutes**, contributing to losses above **$460 million**. | Automated actions and failed controls can amplify software mistakes rapidly. This was a deployment/control failure; we do not claim SWARM would have prevented it. [SEC investigation](https://www.sec.gov/newsroom/press-releases/2013-222). |
+| **PortSwigger web-race research, 2023** | James Kettle documented exploitable intermediate request states and real case studies, including GitLab. The research demonstrated synchronizing **30 requests within a sub-millisecond window** using its single-packet technique. | Request timing and hidden state transitions deserve explicit testing. SWARM implements application-level barriers, with no claim of equivalent packet-level timing. [Original research](https://portswigger.net/research/smashing-the-state-machine). |
 | **ASPLOS concurrency study, 2008** | Researchers examined **105 concurrency bugs across four applications**: MySQL, Apache, Mozilla and OpenOffice. About **92%** could be triggered by enforcing orders among at most four memory accesses. | Small, carefully arranged interactions can expose important failures. This memory-level study motivates schedule-focused testing; it does not validate our HTTP implementation. [Original study](https://www.microsoft.com/en-us/research/publication/learning-from-mistakes-a-comprehensive-study-on-real-world-concurrency-bug-characteristics/). |
 
-Together, these sources support testing shared-state behavior and action ordering. **The evidence for Swarmtest itself is the measured Bazaar experiment below.**
+Together, these sources support testing shared-state behavior and action ordering. **The evidence for SWARM itself is the measured Bazaar experiment below.**
 
 ## The proposed solution
 
-Swarmtest runs a small community of normal users and adversarial personas against a real application.
+SWARM runs a small community of normal users and adversarial personas against a real application.
 
 - **Objectives drive exploration.** Buyers pursue purchases; bargain hunters pursue savings; fraud-oriented sessions pursue compensation; other roles explore reputation and blocked-contact behavior.
 - **Actors share a real target.** Their actions can affect one another's inventory, orders and account state.
@@ -61,7 +61,7 @@ The central design choice is simple: **AI selects actions; executable checks est
 
 The dashboard provides Start/Stop, a confirmed benchmark run, workspace reset, saved-run selection, condition comparisons, agent scores, round activity, usage and report downloads.
 
-![Swarmtest dashboard displaying the saved real-model benchmark](docs/images/swarm-dashboard.png)
+![SWARM dashboard displaying the saved real-model benchmark](docs/images/swarm-dashboard.png)
 
 *Current UI displaying the saved three-seed real-model benchmark. Historical evaluation values are labelled separately from a new workspace run.*
 
@@ -110,7 +110,7 @@ uv run --no-sync python -m swarm.demo --output artifacts/phase1
 
 | Page | Local address |
 | --- | --- |
-| Swarmtest home | http://127.0.0.1:8080/ |
+| SWARM home | http://127.0.0.1:8080/ |
 | Run dashboard | http://127.0.0.1:8080/dashboard |
 | Bazaar marketplace | http://127.0.0.1:8080/bazaar/ |
 | Fallback console | http://127.0.0.1:8080/console |
@@ -316,7 +316,7 @@ Both conditions use the same model, token ceiling and configured policy. The pub
 | Mean estimated exploration cost/run | $0.003272 | **$0.003451** | Configured token prices applied to reported usage, excluding the judge. |
 | Mean reported tokens/run | 17,670.3 | **18,695** | Input and output usage for completed runs. |
 | Mean time to first verified finding | 67.46 s | **53.49 s** | B has a measurement in only one seed; C has measurements in all three. This is not a balanced latency comparison. |
-| Discovered issue types present in every seed | 0 of 1 | **1 of 3 — 33.3%** | The stricter all-seed consistency measure used by the UI. |
+| Mean total time/run | 100.83 s | **114.05 s** | Average elapsed time across the three saved runs, including exploration and verification. |
 
 Recall uses a fixed reference catalog of **eight known demo cases: five interaction cases and three single-user cases**. C's per-seed interaction recalls were 40%, 20% and 40%, averaging 33.3%. Its union covered three of five interaction cases, or **60% cumulative coverage**. Mean per-run recall and cumulative coverage answer different questions.
 
@@ -362,7 +362,7 @@ The following examples come from the real-model experiment, with successful repl
 | **E2: coupon redeemed twice** | One account recorded **2 redemptions** of the same coupon. | Two sessions on that account concurrently call the coupon endpoint. | Independent replay confirms the duplicate redemption. Both sessions are necessary in the reduced reproduction. Found in all three swarm seeds. |
 | **E7: alternate contact after blocking** | A blocked buyer successfully posts an item question to the seller's listing. | The seller blocks the buyer; the buyer then submits the question. | Replay confirms the contact-policy violation. Removing either actor clears it. Human review accepted the case after the judge disagreement. |
 
-E7 is an ordered cross-user workflow, not a requirement for simultaneous requests. Swarmtest's interaction model covers both shared-state races and workflows where one user's action changes what another user should be allowed to do.
+E7 is an ordered cross-user workflow, not a requirement for simultaneous requests. SWARM's interaction model covers both shared-state races and workflows where one user's action changes what another user should be allowed to do.
 
 ## Context, memory and cost controls
 
@@ -469,7 +469,7 @@ This submission demonstrates the complete local path from AI actions to replayed
 - **Small, scenario-guided evaluation.** One demo application, one model, three held-out seeds, and a short exploration horizon do not establish production-wide coverage or statistical generality.
 - **Provider failures are visible.** Rate limits, invalid decisions and missing usage can end runs. During submission checks on 2026-11-01, the local workspace contained a run ending with BudgetAccountingError; the published results table is the separate completed experiment.
 - **Reproducible intent has timing limits.** Client barriers cannot guarantee every database interleaving, and a passed replay attempt is not universal determinism.
-- **Current UI is intentionally smaller.** Replay/review capabilities remain in the backend/CLI; their former UI panel is removed. The landing evaluation cards show reviewed precision, repeatability and estimated cost.
+- **Current UI is intentionally smaller.** Replay/review capabilities remain in the backend/CLI; their former UI panel is removed. The landing evaluation cards show reviewed precision, average time taken and estimated cost from the saved three-seed SWARM benchmark. These cards stay fixed as new workspace runs complete.
 - **Only Bazaar is demonstrated end to end.** Another application needs its OpenAPI mapping, safe reset ownership, fixtures and executable oracles. A universal “point at any site” workflow is not established.
 - **No automated fix claim.** An autonomous patch loop, production CI deployment, externally hosted Meko memory and broad cross-application validation are outside the shipped demo.
 
@@ -481,4 +481,4 @@ For implementation details, see [frontend usage](docs/frontend.md), [context eff
 
 ---
 
-**Swarmtest's demonstrated result:** a small group of AI sessions exposed three interaction failures in Bazaar that the matched isolated baseline missed, with fresh-target replays and actor-removal evidence behind each claim.
+**SWARM's demonstrated result:** a small group of AI sessions exposed three interaction failures in Bazaar that the matched isolated baseline missed, with fresh-target replays and actor-removal evidence behind each claim.
